@@ -1,0 +1,65 @@
+{
+  "mail": {
+    "messages": [
+      {
+        "id": "fx-lumen-ack", "threadId": "fx-t-lumen",
+        "from": { "name": "Lumen Recruiting", "email": "jobs@lumen.example" },
+        "to": [{ "name": "Sam Rivera", "email": "you@example.test" }], "cc": [],
+        "subject": "Thank you for applying to Lumen",
+        "date": "2026-11-09T16:00:00.000Z",
+        "snippet": "Thank you for applying for the Staff designer role at Lumen.",
+        "text": "Hi Sam,\n\nThank you for applying for the Staff designer role at Lumen. We received your application and will be in touch.\n\nLumen Recruiting",
+        "labels": ["INBOX"]
+      },
+      {
+        "id": "fx-northstar-confirm", "threadId": "fx-t-northstar",
+        "from": { "name": "Maya Chen", "email": "maya.chen@northstar.example" },
+        "to": [{ "name": "Sam Rivera", "email": "you@example.test" }], "cc": [],
+        "subject": "Interview confirmed: Product designer at Northstar",
+        "date": "2026-11-10T15:00:00.000Z",
+        "snippet": "Your interview for the Product designer role is confirmed.",
+        "text": "Hi Sam,\n\nYour interview for the Product designer role at Northstar is confirmed for Friday, November 20 at 10:00 AM Mountain Time (America/Denver). We will meet on video.\n\nMaya",
+        "labels": ["INBOX"]
+      },
+      {
+        "id": "fx-cedar-offer", "threadId": "fx-t-cedar",
+        "from": { "name": "Priya Natarajan", "email": "priya@cedar.example" },
+        "to": [{ "name": "Sam Rivera", "email": "you@example.test" }], "cc": [],
+        "subject": "Your offer from Cedar",
+        "date": "2026-11-11T18:00:00.000Z",
+        "snippet": "We are delighted to extend an offer for the Design lead role.",
+        "text": "Hi Sam,\n\nWe are delighted to extend an offer for the Design lead role at Cedar.\n\nPriya",
+        "labels": ["INBOX"]
+      },
+      {
+        "id": "fx-newsletter", "threadId": "fx-t-news",
+        "from": { "name": "Job Alerts", "email": "alerts@board.example" },
+        "to": [{ "name": "Sam Rivera", "email": "you@example.test" }], "cc": [],
+        "subject": "Ten new jobs for you",
+        "date": "2026-11-11T08:00:00.000Z",
+        "snippet": "Ten jobs that match your search.",
+        "text": "Ten jobs that match your search.",
+        "labels": ["INBOX", "CATEGORY_PROMOTIONS"]
+      }
+    ]
+  },
+  "calendar": {
+    "events": [
+      {
+        "id": "fx-ev-northstar", "title": "Portfolio discussion: Northstar product designer interview",
+        "start": "2026-11-20T17:00:00.000Z", "end": "2026-11-20T17:45:00.000Z", "allDay": false,
+        "status": "confirmed", "joinUrl": "https://meet.example.test/northstar-portfolio"
+      },
+      {
+        "id": "fx-ev-dentist", "title": "Dentist",
+        "start": "2026-11-18T15:00:00.000Z", "end": "2026-11-18T16:00:00.000Z", "allDay": false, "status": "confirmed"
+      }
+    ]
+  },
+  "tools": {
+    "ri__ai_text": { "result": { "text": "{\"category\":\"other\",\"quote\":\"\"}" } },
+    "ri__extract_text": { "result": { "text": "Platform designer at Pinecrest\n\nRequirements\n- Five years designing internal platforms.", "truncated": false, "characters": 84 } },
+    "ri__create_task": { "approval": true },
+    "ri__get_task": { "result": { "id": "0192f0aa-0000-7000-8000-00000000e001", "title": "Follow up", "status": "todo" } }
+  }
+}
