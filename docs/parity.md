@@ -13,8 +13,12 @@ The findings that need a change in the kit or in Ri are collected at the end.
 ## How it was checked
 
 - **Tests**: the old app's tests, ported. 100 tests in 9 files, all fictional data. The domain tests run unchanged. The rules, workflow, sync, access, leak and release tests run through the kit's own action router, with Ri's hub played by a hub-shaped fake (`test/fakes.ts`) or by the kit's fixture source (`fixtures/connectors.json`). New tests cover the MCP server (OAuth token required, tool list, read-only connections, a connection limited to some sources, disconnecting in Settings) and the hub through the kit's fixture source (the scheduled import, a duplicate wake-up, an unreachable or revoked hub, a follow-up waiting for approval in Ri, text extraction, the model being unavailable).
-- **By hand**: the screens in a browser on a disposable data directory with the fixture hub (Today, Opportunities, the workspace, Sources), `serve --install --service process`, and an MCP client completing OAuth against it (see "Running it" in the README).
-- **Not checked**: Ri itself (a later session checks every ported app inside Ri), Ri's real hub with a real Gmail account, and the assistant view inside a real host.
+- **By hand**, on disposable data directories:
+  - The screens in a browser with the fixture hub: Today, Opportunities (board and the phone-width stage sections, with no sideways scroll), the workspace and Sources.
+  - `serve --install --service process` passed every step (install, typecheck, tests, build, rehearsal, switch) and answered on `/api/health`. Both jobs showed in Settings' job list, and Run now finished with "Connect this app to Ri in Settings to use your accounts." The service was then removed with `serve --uninstall`.
+  - An MCP client using the MCP SDK's own `auth()` completed OAuth against it: the 401 challenge, discovery, dynamic registration, PKCE, the app's consent screen offering its sources, the token, then tools. A retry with the same operationId returned the same record. A second connection limited to saved jobs and read only saw no materials and was refused a stage change. Refresh worked.
+  - The assistant view in the kit's strict MCP Apps host (a scripts-only sandbox whose page may not reach the network): `show_opportunities` and `show_today` drew their cards, choosing a row sent the bounded selection, and `open_job_search` opened the whole app full screen with its sections working, with no network or CSP failures.
+- **Not checked**: Ri itself (a later session checks every ported app inside Ri), Ri's real hub with a real Gmail account, the app connecting to a real hub with OAuth (the kit tests that against its stand-in hub), and the view inside Claude or ChatGPT.
 
 ## What it does
 
@@ -28,7 +32,7 @@ The findings that need a change in the kit or in Ri are collected at the end.
 | Opportunities: board (Saved, Applied, Interviewing, Offer) and table over the same records | Works | Same screens. |
 | Search by company or role, stage filter, Active, Closed and Archived views | Works | |
 | Move to stage from a keyboard menu, dragging optional | Works | Same screens. |
-| Narrow frames show stage sections or row cards, never a sideways board | Works | Same layout code. Not rechecked at phone width in this port. |
+| Narrow frames show stage sections or row cards, never a sideways board | Works | Checked at 375 pixels wide. |
 | Opportunity workspace: overview, every posting snapshot, correspondence with the reason each matched, submissions with exact material versions, interviews with history, stage history, follow-ups | Works | |
 | Interview preparation: requirements quoted from the posting snapshot, the person's examples, questions and notes with revisions | Works | |
 | AI preparation suggestions in their own labeled list with their evidence | Works differently | Through Ri's `ri__ai_text` on the hub. The person has to allow "Use your model" for Job Search in Ri, and Ri's model service needs Ri's Claude subscription harness. Without it the app says "Extraction unavailable" and preparation works by hand, as before. |
@@ -131,7 +135,7 @@ All of these run on the same code as before and pass the same tests (`test/rules
 
 | Behavior | Mark | Notes |
 | --- | --- | --- |
-| The view in Ri, full screen and beside a chat | Works differently | `open_job_search` opens the whole app, and `show_opportunities` and `show_today` draw cards. Checked with the kit's MCP tool and resource listing, not inside a real host. |
+| The view in Ri, full screen and beside a chat | Works differently | `open_job_search` opens the whole app, and `show_opportunities` and `show_today` draw cards. Checked in the kit's strict MCP Apps host, not inside Ri. |
 | Ri's host theme | Works | The kit applies the host's theme and fonts. |
 | Ri remembered the view's place in its own address, so Back and reopening returned to it | Works differently | In the browser the place is the address. Inside an assistant the view keeps its place in memory while it's open. Reopening starts at the landing section. |
 | Opening a record from elsewhere in Ri (entities with open paths) | Can't work | The kit declares no entities and `open_job_search` takes no input, so a host can't open the app at a record. Cards show records instead. Kit: entity declarations or a deep-link input for `open_<app>` (finding K4). |
