@@ -192,7 +192,6 @@ function Accounts() {
       <SourcesScreen
         accounts={kitAccounts}
         imports={imports.data?.items ?? []}
-        shares={[]}
         onConnect={() => document.getElementById('js-add-account')?.focus()}
         onManageAccess={() => app.manageAccess()}
         onPause={async (id) => { await set.run({ account: target(id).account, kind: target(id).kind, paused: true }); set.reset(); sources.reload(); }}

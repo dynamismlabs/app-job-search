@@ -117,15 +117,15 @@ export function SourcesScreen(props: SourcesScreenProps) {
         <div className="ri-sources__intro">
           <div>
             <Heading id={headingId} className="ri-h2">Sources</Heading>
-            <p>Accounts this app can read, what it imported and which chats can use it.</p>
+            <p>Accounts this app reads through Ri, and what it imported.</p>
           </div>
           <ButtonRow>
-            <Button onClick={() => void act("connect", onConnect)} busy={busy === "connect"}>Connect an account</Button>
-            <Button variant="quiet" onClick={() => void act("manage", onManageAccess)} busy={busy === "manage"}>Manage access</Button>
+            <Button onClick={() => void act("connect", onConnect)} busy={busy === "connect"}>Add an account</Button>
+            <Button variant="quiet" onClick={() => void act("manage", onManageAccess)} busy={busy === "manage"}>Settings</Button>
           </ButtonRow>
         </div>
         <p className="ri-small ri-muted">
-          Only accounts granted to this app appear here. Other accounts connected to Ri stay private to Ri until you grant them with Manage access.
+          Only accounts you add here are read. What Ri lets this app reach is chosen on its page in Ri.
         </p>
         {failure && (failure.key === "connect" || failure.key === "manage") && <p className="ri-inline-error" role="alert"><DangerIcon />{failure.message}</p>}
         {note && <div className="ri-small">{note}</div>}
@@ -149,7 +149,7 @@ export function SourcesScreen(props: SourcesScreenProps) {
             />
           ))
         ) : (
-          <EmptyState compact headingLevel={3} title="No accounts granted to this app" action={<Button variant="primary" onClick={() => void act("connect", onConnect)}>Connect an account</Button>}>
+          <EmptyState compact headingLevel={3} title="No accounts added yet" action={<Button variant="primary" onClick={() => void act("connect", onConnect)}>Add an account</Button>}>
             Files you import and records you add yourself work without an account. Connect one to keep this app up to date automatically.
           </EmptyState>
         )}
@@ -220,7 +220,7 @@ export function SourcesScreen(props: SourcesScreenProps) {
         </div>
         <div>
           <dt>Disconnect</dt>
-          <dd>Done in Ri with Manage access. It stops all reads from the account and keeps the records already imported.</dd>
+          <dd>Done in Ri, on this app&apos;s page. It stops all reads from the account and keeps the records already imported.</dd>
         </div>
         <div>
           <dt>Delete imported data</dt>
@@ -257,7 +257,7 @@ export function SourcesScreen(props: SourcesScreenProps) {
             : "This removes the messages and events this app imported from the account, and anything it learned only from them."}
         </p>
         <p className="ri-muted">
-          Your own notes and corrections stay. {confirm?.kind === "account" ? "The account stays connected to Ri. To stop reading it, use Manage access." : "The original file is not changed."}
+          Your own notes and corrections stay. {confirm?.kind === "account" ? "The account is removed from this app. Ri still lends it until you change that on this app's page in Ri." : "The original file is not changed."}
         </p>
         {failure?.key === "delete" && <p className="ri-inline-error" role="alert"><DangerIcon />{failure.message}</p>}
       </Dialog>
@@ -344,7 +344,7 @@ function AccountCard({ account, zone, now, busy, failure, act, props, onDelete, 
         <p className="ri-small ri-muted">Coverage is partial. Older items in the history range may be missing until the import finishes.</p>
       )}
       {!account.granted && (
-        <p className="ri-small ri-muted">This account is connected to Ri but this app cannot read it. Use Manage access to grant it.</p>
+        <p className="ri-small ri-muted">Ri doesn&apos;t let this app read this account now. Allow it on this app&apos;s page in Ri.</p>
       )}
       {account.error && (
         <p className="ri-account__error"><DangerIcon /><span>{account.error}</span></p>

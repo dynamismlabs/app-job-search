@@ -2,6 +2,6 @@ import type { AppConfig } from "@app-builder/core";
 export const appConfig: AppConfig = {
   id: "job-search",
   name: "Job Search",
-  description: "A little room for everything you read.",
+  description: "Opportunities, interviews, correspondence and versioned materials together.",
   port: 4310,
 };
