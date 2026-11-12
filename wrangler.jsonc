@@ -1,0 +1,41 @@
+{
+  "name": "job-search",
+  "main": "dist/worker.js",
+  "compatibility_date": "2026-11-05",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "job-search",
+      "database_id": "local-development",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "job-search-media"
+    },
+    {
+      "binding": "BACKUPS",
+      "bucket_name": "job-search-backups"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "0 3 * * *",
+      "*/5 * * * *"
+    ]
+  },
+  "observability": {
+    "enabled": true
+  }
+}
