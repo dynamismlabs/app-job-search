@@ -123,7 +123,7 @@ export function hubCapability(ctx: Context | null) {
 export function invocationFor(ctx: Context, options: { operationId?: string; access: InvocationAccess | null; audience?: AppInvocation["audience"]; fixture?: boolean }): AppInvocation {
   const principal: AppPrincipal = options.fixture ? { kind: "fixture", id: "preview" }
     : ctx.job ? { kind: "job", id: ctx.job.name }
-    : ctx.connection ? { kind: "chat", id: ctx.connection.clientId }
+    : ctx.connection ? { kind: "chat", id: ctx.connection.name.slice(0, 120) || ctx.connection.clientId }
     : { kind: "owner-ui", id: ctx.viewer.id };
   const actorId = `${principal.kind}:${principal.id}`;
   const hub = hubCapability(ctx);

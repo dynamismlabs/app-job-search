@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { AskRiButton, Button, ButtonRow, EmptyState, ErrorState, LoadingState, StatusLabel, useQuery, useRiApp } from './ui.js';
 import { formatDate } from '../lib/time.js';
-import type { Location } from './app.js';
+import type { Location } from './location.js';
 import type { TodayData } from './types.js';
 import { durationText, FORMAT_TEXT, shortDate, viewerZone, whenText } from './format.js';
 

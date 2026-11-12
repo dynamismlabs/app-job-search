@@ -1,18 +1,12 @@
-import { createRequestHandler } from "react-router";
-import serverBuild from "virtual:app-builder/ssr";
-import { createApp } from "@app-builder/core";
-import { createWorkerPlatform, runScheduled } from "@app-builder/core/worker";
-import { application } from "./app";
-import viewHTML from "../dist/mcp.html";
-const render = createRequestHandler(serverBuild, "production");
+/**
+ * Job Search runs as the person's own Node service only (`serve --install`).
+ * Its rules commit read-then-write transactions on a synchronous SQLite
+ * handle (src/lib/db.ts), which Cloudflare D1 can't offer, so there is no
+ * Worker build. The kit's build still compiles this entry, so it answers
+ * plainly instead. See docs/parity.md, "Hosting".
+ */
 export default {
-  // The nightly backup and the app's own jobs (wrangler.jsonc lists both cron triggers).
-  scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) { ctx.waitUntil(runScheduled(application, env, controller.cron)); },
-  fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    if (/^\/(assets\/|offline\.html$|sw\.js$|manifest\.webmanifest$|icon\.svg$)/.test(new URL(request.url).pathname)) return env.ASSETS.fetch(request);
-    const platform = createWorkerPlatform(env);
-    const app = createApp({ ...application, viewHTML }, () => platform);
-    app.all("*", (c) => render(c.req.raw, { platform }));
-    return app.fetch(request, env, ctx);
+  fetch() {
+    return new Response("Job Search runs on your own computer as a service, not on Cloudflare. See docs/parity.md in its source.", { status: 501, headers: { "content-type": "text/plain; charset=utf-8" } });
   },
 };

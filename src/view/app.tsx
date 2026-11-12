@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell, Button, EmptyState, LoadingState, Notice, SectionPanel, SectionTabs, useLocationMoves, useQuery, useRiApp } from './ui.js';
 import type { Stage } from '../domain/labels.js';
-import { AccessScreen } from './access.js';
+
 import { TodayView } from './today.js';
 import { OpportunitiesView } from './opportunities.js';
 import { OpportunityWorkspace } from './workspace.js';
@@ -23,12 +23,13 @@ import { locationFrom, pathOf, type Location, type Tab } from './location.js';
 export function JobSearchApp() {
   const app = useRiApp<ViewData>();
   const data = app.data;
+  if (!data && app.error) return <AppShell eyebrow="Job Search" title="Your next move"><Notice tone="danger" title="Job Search could not open">{app.error}</Notice></AppShell>;
   if (!data) return <AppShell eyebrow="Job Search" title="Your next move"><LoadingState label="Opening Job Search" /></AppShell>;
-  if (data.mode === 'access') return <AccessScreen data={data} />;
+
   return <Main data={data} />;
 }
 
-function Main({ data }: { data: Extract<ViewData, { mode: 'app' }> }) {
+function Main({ data }: { data: ViewData }) {
   const app = useRiApp<ViewData>();
   const [location, setLocationState] = useState<Location>(() => locationFrom(data.path, data.query, data.landing));
   const [saveOpen, setSaveOpen] = useState<null | { opportunityId?: string }>(null);
@@ -84,7 +85,7 @@ function Main({ data }: { data: Extract<ViewData, { mode: 'app' }> }) {
     body = (
       <EmptyState
         title="Start with a job you are considering"
-        action={<><Button variant="primary" onClick={() => setSaveOpen({})}>Save a job</Button><Button onClick={() => void app.openSources()}>Connect email</Button></>}
+        action={<><Button variant="primary" onClick={() => setSaveOpen({})}>Save a job</Button><Button onClick={() => void app.openSources()}>Connect email</Button>{!app.embedded && <Button variant="quiet" onClick={() => void app.call('load_preview', {}, { invocationId: crypto.randomUUID() }).then(() => app.changed('Loaded the fictional preview'))}>Try with fictional records</Button>}</>}
       >
         <p>Save a job with its description so it stays available even if the posting disappears. Then add your résumé, record applications and prepare for interviews in one place.</p>
         <p className="ri-small" style={{ marginTop: '0.75rem' }}>Connecting email is optional. It reads application, interview and offer mail from the last 90 days by default, and only from the account you choose.</p>
@@ -113,7 +114,7 @@ function Main({ data }: { data: Extract<ViewData, { mode: 'app' }> }) {
     <AppShell
       eyebrow="Job Search"
       title={empty ? 'Keep your next opportunity together' : 'Your next move'}
-      context={data.fictional ? <span className="js-badge-fictional">Fictional preview records. Nothing here is real or sent anywhere.</span> : 'Your opportunities, conversations and preparation in one place.'}
+      context={data.fictional ? <span className="js-badge-fictional">Fictional preview records. Nothing here is real or sent anywhere.{data.onlyFictional && !app.embedded && <> <Button variant="link" size="sm" onClick={() => void app.call('clear_preview', {}, { invocationId: crypto.randomUUID() }).then(() => app.changed('Removed the fictional preview'))}>Remove them</Button></>}</span> : 'Your opportunities, conversations and preparation in one place.'}
       primaryAction={data.owner && !empty ? <Button variant="primary" onClick={() => setSaveOpen({})}>Save a job</Button> : undefined}
       tabs={<SectionTabs label="Job Search sections" panelId="js-panel" value={location.tab} onChange={changeTab} items={tabs} />}
       notice={notice}

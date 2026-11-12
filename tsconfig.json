@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
@@ -14,15 +14,17 @@
       "vite/client"
     ],
     "lib": [
-      "ES2022",
+      "ES2023",
       "DOM",
       "DOM.Iterable"
     ]
   },
   "include": [
     "src",
+    "test",
     "app.config.ts",
     "vite.config.ts",
+    "vitest.config.ts",
     "worker-configuration.d.ts"
   ]
 }

@@ -5,8 +5,8 @@ import {
   useAnnounce, useMutation, useQuery, useRiApp, type SourceAccount, type SourceStatus,
 } from './ui.js';
 import { stageLabel, STAGE_LABELS } from '../domain/labels.js';
-import type { Location } from './app.js';
-import type { ListResult, OpportunityList, ReviewItem, ScopeRecord, SourceSummary, StepSummary, Write } from './types.js';
+import type { Location } from './location.js';
+import type { HubState, ListResult, OpportunityList, ReviewItem, SourceSummary, StepSummary, Write } from './types.js';
 import { classificationText, dayOf, errorText, mediumDate, shortDate, stageText } from './format.js';
 
 type Go = (patch: Partial<Location>) => void;
@@ -153,14 +153,12 @@ function ReviewCard({ item, onDone, go }: { item: ReviewItem; onDone: () => void
 function Accounts() {
   const app = useRiApp();
   const announce = useAnnounce();
-  const sources = useQuery<{ sources: SourceSummary[] }>('list_sources', {});
+  const sources = useQuery<{ sources: SourceSummary[]; hub: HubState }>('list_sources', {});
   const imports = useQuery<{ items: { id: string; name: string; kind: string; importedAt: string; records: number; status: string }[] }>('list_imports', {});
-  const scopes = useQuery<{ scopes: ScopeRecord[] }>('list_scopes', {});
   const set = useMutation<Record<string, unknown>, { source: SourceSummary }>('set_source');
   const step = useMutation<Record<string, unknown>, StepSummary>('continue_import');
   const remove = useMutation<Record<string, unknown>, unknown>('delete_source_data');
   const removeImport = useMutation<Record<string, unknown>, { message: string }>('delete_import');
-  const revoke = useMutation<Record<string, unknown>, unknown>('revoke_scope');
   const exporter = useMutation<Record<string, unknown>, { fileName: string; mimeType: string; text: string; opportunities: number; materials: number }>('export_records');
   const [exportError, setExportError] = useState<string | null>(null);
   if (sources.error && !sources.data) return <ErrorState message={sources.error} onRetry={sources.reload} />;
@@ -187,19 +185,21 @@ function Accounts() {
   const labels = new Map(all.map((source) => [source.key, source.label]));
   const calendars = accounts.filter((source) => source.kind === 'calendar' && source.granted);
   const mailboxes = accounts.filter((source) => source.kind === 'mail' && source.granted);
+  void labels;
   return (
     <div className="ri-stack ri-stack--loose">
+      <HubPanel hub={sources.data.hub} accounts={accounts} onSaved={sources.reload} />
       <SourcesScreen
         accounts={kitAccounts}
         imports={imports.data?.items ?? []}
-        shares={(scopes.data?.scopes ?? []).filter((scope) => !scope.revokedAt).map((scope) => ({ id: scope.id, label: scope.label, actor: scope.actorId.startsWith('chat:') ? 'A Ri chat' : scope.actorId.startsWith('workspace:') ? 'A Ri agent' : 'A scheduled caller', sources: scope.sources.map((source) => labels.get(source) ?? 'A removed source'), createdAt: scope.createdAt }))}
-        onConnect={() => app.openSources()}
+        shares={[]}
+        onConnect={() => document.getElementById('js-add-account')?.focus()}
         onManageAccess={() => app.manageAccess()}
         onPause={async (id) => { await set.run({ account: target(id).account, kind: target(id).kind, paused: true }); set.reset(); sources.reload(); }}
         onResume={async (id) => {
           const source = target(id);
           if (source.paused) { await set.run({ account: source.account, kind: source.kind, paused: false }); set.reset(); sources.reload(); }
-          else await app.openSources();
+          else { const result = await step.run({ source: source.key }); step.reset(); announce(result.message); sources.reload(); }
         }}
         onContinue={async (id) => { const result = await step.run({ source: target(id).key }); step.reset(); announce(result.message); sources.reload(); }}
         onDeleteImported={async (id) => {
@@ -208,8 +208,7 @@ function Accounts() {
           sources.reload();
         }}
         onChangeHistory={async (id, days) => { await set.run({ account: target(id).account, kind: target(id).kind, historyDays: days }); set.reset(); sources.reload(); }}
-        onRevokeShare={async (id) => { await revoke.run({ scopeRef: id }); revoke.reset(); scopes.reload(); }}
-        note={<p>Job Search reads only the accounts you grant. Email covers application, recruiter, interview and offer messages, including ones you sent. Calendar access is chosen separately and is used only to find interviews. Nothing is ever sent from this app.</p>}
+        note={<p>Job Search reads only the accounts you add here, through Ri, and only what Ri allows for this app. Email covers application, recruiter, interview and offer messages, including ones you sent. Calendar access is chosen separately and is used only to find interviews. Nothing is ever sent from this app. Which assistants may use Job Search, and what each may see, is in Settings.</p>}
       />
       {mailboxes.map((source) => <MailPreview key={source.key} source={source} />)}
       {calendars.map((source) => <CalendarChoice key={source.key} source={source} onSaved={sources.reload} />)}
@@ -233,6 +232,62 @@ function Accounts() {
         <InlineError>{exportError}</InlineError>
       </section>
     </div>
+  );
+}
+
+/**
+ * What Ri lends Job Search, and the accounts read through it. Ri doesn't tell
+ * the app which accounts it granted, so the person adds each one here: the one
+ * account Ri allows needs no address, and with several, the address picks it.
+ */
+function HubPanel({ hub, accounts, onSaved }: { hub: HubState; accounts: SourceSummary[]; onSaved: () => void }) {
+  const app = useRiApp();
+  const announce = useAnnounce();
+  const save = useMutation<Record<string, unknown>, { source: SourceSummary }>('set_source');
+  const [kind, setKind] = useState<'mail' | 'calendar'>('mail');
+  const [address, setAddress] = useState('');
+  const [automatic, setAutomatic] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const lent = [hub.mail && 'Gmail', hub.calendar && 'Google Calendar', hub.ai && 'its model', hub.tasks && 'tasks'].filter(Boolean) as string[];
+  return (
+    <section className="js-panel" aria-labelledby="js-hub-title">
+      <div className="ri-section-heading">
+        <h2 id="js-hub-title" className="js-panel__title">Your accounts through Ri</h2>
+        <StatusLabel tone={hub.connected ? 'success' : 'warning'}>{hub.connected ? 'Connected to Ri' : 'Not connected to Ri'}</StatusLabel>
+      </div>
+      {hub.connected
+        ? <p className="ri-small">{lent.length ? `Ri lends Job Search ${lent.join(', ').replace(/, ([^,]*)$/, ' and $1')}.` : 'Ri lends Job Search nothing yet.'} What it may reach is chosen on Job Search's page in Ri.</p>
+        : <p className="ri-small">{hub.message ?? 'Connect Job Search to Ri to read job email and interviews.'} Connect it in Settings, under Your accounts through Ri, then allow Gmail and Google Calendar there.{' '}
+            <Button variant="link" size="sm" onClick={() => void app.manageAccess()}>Open Settings</Button></p>}
+      {accounts.length > 0 && (
+        <div className="ri-stack ri-stack--tight">
+          {accounts.map((source) => (
+            <Checkbox key={source.key + source.kind} label={`Update ${source.label} (${source.kind === 'mail' ? 'mail' : 'calendar'}) automatically`} hint="Every five minutes, while Job Search runs" checked={source.automatic}
+              onChange={async (on) => { try { await save.run({ account: source.account, kind: source.kind, automatic: on }); save.reset(); onSaved(); } catch (failure) { setError(errorText(failure)); } }} />
+          ))}
+        </div>
+      )}
+      {hub.connected && (
+        <div className="ri-stack ri-stack--tight">
+          <h3 className="ri-h3">Add an account</h3>
+          <Select label="What to read" value={kind} onChange={(value) => setKind(value as 'mail' | 'calendar')} options={[{ value: 'mail', label: 'Gmail' }, { value: 'calendar', label: 'Google Calendar' }]} />
+          <TextInput id="js-add-account" label="Account address" hint="Leave empty when Ri allows one account. With several, enter the address as Ri shows it." value={address} onChange={setAddress} />
+          <Checkbox label="Update automatically" checked={automatic} onChange={setAutomatic} />
+          <ButtonRow>
+            <Button variant="primary" busy={save.pending} onClick={async () => {
+              setError(null);
+              try {
+                const result = await save.run({ account: address.trim() || 'default', kind, automatic });
+                save.reset(); setAddress('');
+                announce(`${result.source.label} added`);
+                onSaved();
+              } catch (failure) { setError(errorText(failure)); }
+            }}>Add account</Button>
+          </ButtonRow>
+        </div>
+      )}
+      <InlineError>{error}</InlineError>
+    </section>
   );
 }
 

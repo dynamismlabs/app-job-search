@@ -23,7 +23,7 @@ async function connect(token: string) {
   const client = new Client({ name: 'job-search-test', version: '1' });
   await client.connect(new StreamableHTTPClientTransport(new URL(`${BASE}/mcp`), {
     requestInit: { headers: { authorization: `Bearer ${token}` } },
-    fetch: (url, init) => server.request(String(url), init as RequestInit),
+    fetch: async (url, init) => server.request(String(url), init as RequestInit),
   }));
   return client;
 }

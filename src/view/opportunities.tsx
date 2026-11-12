@@ -5,7 +5,7 @@ import {
   SegmentedControl, SplitView, StatusLabel, Toolbar, useAnnounce, useAppLayout, useElementWidth, useMutation, useQuery, useRiApp,
 } from './ui.js';
 import { BOARD_STAGES, OUTCOME_LABELS, STAGE_LABELS, type Outcome, type Stage } from '../domain/labels.js';
-import type { Location } from './app.js';
+import type { Location } from './location.js';
 import type { OpportunityList, OpportunityRecord, OpportunitySummary, Write } from './types.js';
 import { CompareDialog, StageMenu } from './dialogs.js';
 import { errorText, locationText, nextText, shortDate, stageText, whenText } from './format.js';
@@ -35,7 +35,7 @@ export function OpportunitiesView({ location, go, onSaveJob, workspace }: Props)
     const chosen = compare.length ? compare : location.selected ? [location.selected] : [];
     app.context({
       section: workspace ? 'opportunity' : 'opportunities',
-      selected: chosen.slice(0, 50).map((id) => ({ type: 'opportunity', id })),
+      selected: chosen.slice(0, 50).map((id) => { const item = items.find((entry) => entry.id === id); return { type: 'opportunity', id, title: item ? `${item.company} · ${item.role}` : undefined }; }),
       filters: { ...(location.search ? { search: location.search.slice(0, 200) } : {}), ...(location.stage ? { stage: location.stage } : {}), view: location.view, mode: location.mode },
       revisions: Object.fromEntries(items.filter((item) => chosen.includes(item.id)).map((item) => [item.id, item.revision])),
     });

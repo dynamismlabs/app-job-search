@@ -4,7 +4,7 @@ import {
   AskRiButton, Button, ButtonRow, ChevronLeftIcon, ConflictNotice, ErrorState, InlineError, LoadingState, Notice, SourceLine, StatusLabel, TextArea,
   useAnnounce, useMutation, useQuery, useRiApp,
 } from './ui.js';
-import type { Location } from './app.js';
+import type { Location } from './location.js';
 import type { Interview, OpportunityDetail, PostingDetail, Preparation, Write } from './types.js';
 import { durationText, errorText, FORMAT_TEXT, localId, mediumDate, shortDate, whenText, classificationText } from './format.js';
 
@@ -40,7 +40,7 @@ export function PreparationView({ target, onBack, backLabel, go }: { target: { o
   }, [prep.data]);
   useEffect(() => {
     if (!prep.data) return;
-    app.context({ section: 'preparation', selected: [...(prep.data.interviewId ? [{ type: 'interview', id: prep.data.interviewId }] : []), { type: 'opportunity', id: prep.data.opportunityId }], revisions: detail.data ? { [detail.data.opportunity.id]: detail.data.opportunity.revision } : undefined });
+    app.context({ section: 'preparation', selected: [...(prep.data.interviewId ? [{ type: 'interview', id: prep.data.interviewId, title: `Preparing for ${detail.data?.interviews.find((item) => item.id === prep.data!.interviewId)?.title ?? 'an interview'}${detail.data ? ` at ${detail.data.opportunity.company}` : ''}` }] : []), { type: 'opportunity', id: prep.data.opportunityId, title: detail.data ? `Preparing for ${detail.data.opportunity.company} · ${detail.data.opportunity.role}` : undefined }], revisions: detail.data ? { [detail.data.opportunity.id]: detail.data.opportunity.revision } : undefined });
   }, [app, prep.data, detail.data]);
 
   if (prep.error && !prep.data) return <ErrorState title="This preparation could not open" message={prep.error} onRetry={prep.reload} />;

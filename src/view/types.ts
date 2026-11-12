@@ -5,9 +5,8 @@ import type { Stage, Outcome } from '../domain/labels.js';
 export type { Compensation, CorrespondenceItem, Coverage, FollowUp, Interview, MaterialFamily, MaterialVersion, OpportunityRecord, OpportunitySummary, Preparation, Requirement, ReviewItem, StageEvent, Submission, PostingExtract, Stage, Outcome };
 
 export type Section = 'today' | 'opportunities' | 'opportunity' | 'preparation' | 'materials' | 'sources';
-export type ViewData =
-  | { mode: 'access'; actorId: string; sources: { key: string; label: string; kind: 'collection' | 'mail' | 'calendar'; description: string }[] }
-  | { mode: 'app'; path: string; query: Record<string, string>; section: Section; id: string | null; landing: 'today' | 'opportunities'; revision: string; owner: boolean; fictional: boolean; setup: { opportunities: number; materials: number; mailConnected: boolean; calendarConnected: boolean; review: number } };
+/** The setup state (get_view_state) plus the place in the address. */
+export type ViewData = { mode: 'app'; path: string; query: Record<string, string>; section: Section; id: string | null; landing: 'today' | 'opportunities'; revision: string; owner: boolean; fictional: boolean; onlyFictional: boolean; setup: { opportunities: number; materials: number; mailConnected: boolean; calendarConnected: boolean; review: number } };
 
 export interface ListResult<T> { items: T[]; nextCursor: string | null; coverage: Coverage; revision: string }
 export interface OpportunityList extends ListResult<OpportunitySummary> { total: number; counts: Record<Stage | 'archived', number> }
@@ -47,7 +46,8 @@ export interface SourceSummary {
   historyDays: number | null; calendars: string[]; coverage: { from: string | null; to: string | null; partial: boolean }; lastSuccessAt: string | null; pending: number; failed: number; lastError: string | null; records: number;
 }
 export interface StepSummary { ran: string | null; source: string | null; read: number; skipped: number; removed: number; more: boolean; message: string }
-export interface ScopeRecord { id: string; actorId: string; label: string; sources: string[]; operations: ('read' | 'write')[]; revokedAt: string | null; createdAt: string }
+/** What Ri lends the app now (list_sources). */
+export interface HubState { connected: boolean; mail: boolean; calendar: boolean; ai: boolean; tasks: boolean; message: string | null }
 
 export interface WriteResult<T> { status: 'saved'; record: T }
 export interface WriteConflict<T> { status: 'conflict'; current: T; message: string }

@@ -99,8 +99,8 @@ export function nextText(next: NextItem | null): string {
 export function authorText(author: string): string {
   if (author === 'automatic') return 'Automatic';
   if (author.startsWith('owner-ui:') || author.startsWith('fixture:')) return 'You';
-  if (author.startsWith('chat:')) return 'A Ri chat';
-  if (author.startsWith('workspace:')) return 'A Ri agent';
+  // An assistant connection, by the name it registered with, such as "Ri" or "Ri · Family".
+  if (author.startsWith('chat:')) return author.slice(5) || 'An assistant';
   if (author.startsWith('job:') || author.startsWith('background:')) return 'Scheduled update';
   return 'Someone';
 }

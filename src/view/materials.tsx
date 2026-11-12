@@ -26,8 +26,8 @@ export function MaterialsView({ selectedId, onSelect }: { selectedId: string | n
   const items = list.data?.items ?? [];
   const selected = items.find((item) => item.id === selectedId) ?? null;
   useEffect(() => {
-    app.context({ section: 'materials', selected: selectedId ? [{ type: 'material', id: selectedId }] : [] });
-  }, [app, selectedId]);
+    app.context({ section: 'materials', selected: selectedId ? [{ type: 'material', id: selectedId, title: selected?.title }] : [] });
+  }, [app, selectedId, selected?.title]);
   const listContent = (
     <div className="ri-stack">
       <div className="ri-section-heading">

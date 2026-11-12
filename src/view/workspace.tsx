@@ -6,7 +6,7 @@ import {
 } from './ui.js';
 import { CHANNEL_LABELS, MATERIAL_LABELS } from '../domain/labels.js';
 import { compensationLabel, formatCompensation } from '../domain/compensation.js';
-import type { Location } from './app.js';
+import type { Location } from './location.js';
 import type { CorrespondenceDetail, FollowUpItem, Interview, OpportunityDetail, OpportunityRecord, PostingDetail, Write } from './types.js';
 import { DetailsDialog, FollowUpButton, InterviewDialog, RecordApplicationDialog, StageMenu } from './dialogs.js';
 import { authorText, classificationText, CONFIDENCE_TEXT, dayOf, DECISION_TEXT, durationText, errorText, FORMAT_TEXT, interviewStatusText, locationText, mediumDate, shortDate, stageText, whenText } from './format.js';
@@ -30,7 +30,7 @@ export function OpportunityWorkspace({ id, section, go, onAddDescription }: { id
   useEffect(() => {
     if (!current) return;
     const upcoming = current.interviews.find((interview) => interview.status === 'scheduled' && interview.startAt && Date.parse(interview.endAt ?? interview.startAt) > Date.now());
-    app.context({ section: 'opportunity', selected: [{ type: 'opportunity', id }, ...(upcoming ? [{ type: 'interview', id: upcoming.id }] : [])], revisions: { [id]: current.opportunity.revision } });
+    app.context({ section: 'opportunity', selected: [{ type: 'opportunity', id, title: `${current.opportunity.company} · ${current.opportunity.role}` }, ...(upcoming ? [{ type: 'interview', id: upcoming.id, title: upcoming.title }] : [])], revisions: { [id]: current.opportunity.revision } });
   }, [app, id, current]);
   if (detail.error && !current) return <ErrorState title="This opportunity could not open" message={detail.error} onRetry={detail.reload} />;
   if (!current) return <LoadingState label="Loading opportunity" rows={4} />;
