@@ -4,7 +4,7 @@ Job Search was an app bundled in Ri (`apps/job-search`, last at Ri commit `3c442
 
 Every feature and behavior from the old README and tests is listed below with one of three marks:
 
-- **Works**: the same behavior, checked by the ported tests or by hand. A line about assistants that says "verified in the test host" was checked in the kit's strict MCP Apps test host. Real hosts (Ri, ChatGPT, Claude) are the next check, so those lines say "real hosts pending".
+- **Works**: the same behavior, checked by the ported tests or by hand. A line about assistants that says "verified in the test host" was checked in the kit's strict MCP Apps test host. Ri was then checked on November 16, 2026 in a **disposable Ri at f55cdf96** on this Mac, on the web and in its desktop app, with dummy and fictional records only (not Trey's own Ri, which runs on another computer). Those lines say what Ri did. ChatGPT and Claude are still pending. Details in [Real hosts](#real-hosts), screenshots in `docs/parity/`.
 - **Works differently**: the person or an assistant can still do it, in a different way. The entry says how.
 - **Can't work**: it can't work on the new path today. The entry says why and what the kit or Ri would need.
 
@@ -31,7 +31,8 @@ The findings that need a change in the kit or in Ri are collected at the end.
   - the @ menu finds records as the connection
   
   One note on the harness: in this headless Chrome, a pointer click doesn't reach a button the sandboxed frame had to scroll to (the frame scrolls, and a dispatched click works), so the check presses Enter on those two buttons.
-- **Not checked**: Ri itself (the next step opens every ported app in Ri's desktop and web apps, ChatGPT and Claude), Ri's real hub with a real Gmail account, the app connecting to a real hub with OAuth (the kit tests that against its stand-in hub), and picking a file inside a host's frame.
+- **Installed and checked in Ri** (November 16): installed as this Mac's service with `PORT=4312 APP_HOST=127.0.0.1 APP_URL=http://127.0.0.1:4312 pnpm exec app-builder serve --install HEAD --json` (every step passed; launchd `local.job-search`, data in `~/.local/share/job-search`), then `change HEAD --json` to 0c3c59b, the `sourceAccount` fix. `pnpm typecheck` and `pnpm test` pass: 9 files, 103 tests, and the new contract test fails on the old code. Then the checks in [Real hosts](#real-hosts) in a disposable Ri at f55cdf96, driven with Playwright in Ri's web app and its source Electron app. The fictional preview, the dummy job and its import were removed afterwards, and the disposable Ri's connection was disconnected in Settings.
+- **Not checked**: Trey's own Ri, ChatGPT and Claude, Ri's real hub with a real Gmail account, and the app connecting to a real hub with OAuth (the kit tests that against its stand-in hub).
 
 ## What it does
 
@@ -53,9 +54,9 @@ The findings that need a change in the kit or in Ri are collected at the end.
 | Sources: matching review | Works | |
 | Sources: connected accounts | Works differently | Ri's hub doesn't tell an app which accounts it granted, so the person adds each account in Sources (no address needed when Ri allows one). Sources shows what Ri lends the app now (mail, calendar, model, tasks). See finding K1. |
 | Sources: coverage and sync state per account | Works | |
-| Sources: imported files, with Delete imported data | Works | In the browser and in hosts. Deleting is view-only, so a host that follows MCP Apps keeps it from its model (verified in the test host, real hosts pending). |
+| Sources: imported files, with Delete imported data | Works | In the browser and in hosts. Deleting is view-only, so a host that follows MCP Apps keeps it from its model (verified in the test host, and in Ri, where Delete imported data ran from the browser page and `delete_import` is view-only. ChatGPT and Claude pending). |
 | Sources: chats with access | Works differently | Each assistant connection (Ri's own chats, each Ri workspace, Claude, ChatGPT) chooses on the app's consent screen which parts it may see and whether it may change records. Settings lists the connections and disconnects them. Ri's per-chat scopes are gone. |
-| Sources: personal export | Works | In the browser it downloads. In a host it's saved through the host's `ui/download-file` (verified in the test host, real hosts pending). Ri's host doesn't save files until dynamismlabs/ri#2 merges, so in Ri for now the view says to export from Job Search in the browser, and Open in browser takes the person there. |
+| Sources: personal export | Works | In the browser it downloads. In a host it's saved through the host's `ui/download-file` (verified in the test host). In Ri (web and desktop) Export your records showed Ri's card ("Job search wants to save job-search-export-2026-11-17.json (38 KB)") and Save wrote the file. ChatGPT and Claude pending. |
 
 ## Inputs
 
@@ -95,10 +96,10 @@ All of these run on the same code as before and pass the same tests (`test/rules
 | Old action | Mark | Now |
 | --- | --- | --- |
 | `list_opportunities`, `get_opportunity`, `save_opportunity`, `change_stage`, `get_posting`, `record_submission`, `list_interviews`, `save_interview`, `list_materials`, `get_material`, `save_material_version`, `compare_material_versions`, `get_preparation`, `save_preparation`, `list_review`, `get_correspondence`, `get_today`, `create_follow_up`, `list_follow_ups` | Works | The same actions, as MCP tools and over the browser's API. |
-| `set_stage_tracking`, `set_source`, `continue_import`, `preview_import`, `apply_import`, `delete_source_data`, `delete_import`, `export_records`, `archive_material`, `suggest_preparation` | Works | View-only, as Ri had them: the view calls them in the browser and in hosts, and a host that follows MCP Apps keeps them from its model (verified in the test host, real hosts pending). `set_source` also adds accounts and sets automatic updates. |
+| `set_stage_tracking`, `set_source`, `continue_import`, `preview_import`, `apply_import`, `delete_source_data`, `delete_import`, `export_records`, `archive_material`, `suggest_preparation` | Works | View-only, as Ri had them: the view calls them in the browser and in hosts, and a host that follows MCP Apps keeps them from its model (verified in the test host, and in Ri, which refused `export_records` and `clear_preview` on the model's path, "This tool is not available to this caller.", while the view's `load_preview`, `preview_import`, `apply_import` and export went through. ChatGPT and Claude pending). `set_source` takes the account as `sourceAccount` (Ri refuses a tool input named `account`, R5), and also adds accounts and sets automatic updates. |
 | `resolve_match` | Works differently | View-only now. In Ri the model could record a review decision the person stated. Now the person decides in the review, and the assistant opens it for them (`open_job_search` at `/sources`). The agent skill says so. |
 | `list_sources`, `list_source_calendars`, `preview_source`, `list_imports` | Works differently | View-only in Ri. Now reads the model can see too: they show only what a connection may see, and the kit marks only the person's decisions view-only. |
-| `open_view` | Works | `open_job_search` opens the whole app, at `/opportunities/<id>`, `/interviews/<id>`, `/materials/<id>` or a section when given a path, and `show_opportunities` and `show_today` draw cards in a chat (verified in the test host, real hosts pending). The screens load their setup from `get_view_state`. |
+| `open_view` | Works | `open_job_search` opens the whole app, at `/opportunities/<id>`, `/interviews/<id>`, `/materials/<id>` or a section when given a path, and `show_opportunities` and `show_today` draw cards in a chat (verified in the test host. In Ri the whole app opened full screen and at `/opportunities/<id>`, on the web and desktop. The cards need a model's call, which the disposable Ri couldn't make. ChatGPT and Claude pending). The screens load their setup from `get_view_state`. |
 | `describe_view_context` | Works differently | The view reports the section, its path and filters, and the selected records (one, or several when comparing roles, up to 50 listed) with the kit's bounded context, re-read by the assistant with its own access. A record the person @-mentions reads as the same labeled text Ri's context gave, under the connection's access. |
 | `create_scope`, `list_scopes`, `revoke_scope` | Works differently | The app's consent screen and Settings, per connection. |
 | `run_background_step`, `sync_step`, `enrich_step` | Works differently | One declared job, `sync_sources`, every five minutes, runs the same bounded steps. |
@@ -149,14 +150,39 @@ All of these run on the same code as before and pass the same tests (`test/rules
 
 | Behavior | Mark | Notes |
 | --- | --- | --- |
-| The view in Ri, full screen and beside a chat | Works | `open_job_search` opens the whole app, and `show_opportunities` and `show_today` draw cards whose rows open the whole app at that record (verified in the test host, real hosts pending). |
+| The view in Ri, full screen and beside a chat | Works | `open_job_search` opens the whole app, and `show_opportunities` and `show_today` draw cards whose rows open the whole app at that record (verified in the test host. In Ri, full screen works on the web and desktop when Job Search is added with **Add MCP server**. Through **Add app** no screen opens (Ri gap R6). Cards and beside-a-chat weren't checked, since they need a model. ChatGPT and Claude pending). |
 | Ri's host theme | Works | The kit applies the host's theme and fonts. |
-| Ri remembered the view's place in its own address, so Back and reopening returned to it | Works differently | In the browser the place is the address. Inside a host the view keeps its place in its own router while it's open, and a host's link (`openai/deepLink`, Ri's links to a screen) or `open_job_search`'s path opens it at a place (verified in the test host, real hosts pending). |
-| Opening a record from elsewhere in Ri (entities with open paths) | Works | `open_job_search` takes a path, and the host's @ menu finds opportunities, interviews and materials under the connection's access and reads one as text that ends with its path (verified in the test host and MCP tests, real hosts pending). |
-| "Ask Ri" staged editable text in Ri's chat composer | Works | The view drafts it with `ui/message` and OpenAI's `send: false`, which Ri puts in the message box unsent (verified in the test host, real hosts pending). In a host that can't draft, the question shows to copy. In the browser, which has no chat, the button doesn't show. |
-| Opening a posting or meeting link, directions | Works | Through the host's `ui/open-link` (verified in the test host, real hosts pending). Where a host can't open it, or refuses it, the address shows to copy. Ri opens https links anywhere. |
+| Ri remembered the view's place in its own address, so Back and reopening returned to it | Works differently | In the browser the place is the address. Inside a host the view keeps its place in its own router while it's open, and a host's link (`openai/deepLink`, Ri's links to a screen) or `open_job_search`'s path opens it at a place (verified in the test host, and in Ri: `?open=open_job_search&path=/opportunities/<id>` opened Lumen's page on the web and desktop. Ri's Reload starts the app over at Today. ChatGPT and Claude pending). |
+| Opening a record from elsewhere in Ri (entities with open paths) | Works | `open_job_search` takes a path, and the host's @ menu finds opportunities, interviews and materials under the connection's access and reads one as text that ends with its path (verified in the test host and MCP tests. In Ri the @ menu found "Lumen · Staff designer" and its cover letter. Reading an item at send needs a model harness, which the disposable Ri didn't have. ChatGPT and Claude pending). |
+| "Ask Ri" staged editable text in Ri's chat composer | Works | The view drafts it with `ui/message` and OpenAI's `send: false`, which Ri puts in the message box unsent (verified in the test host, and in Ri on the web and desktop: "Job search wrote a message for you. It's in your main chat's draft, ready when you are." ChatGPT and Claude pending). In a host that can't draft, the question shows to copy. In the browser, which has no chat, the button doesn't show. |
+| Opening a posting or meeting link, directions | Works | Through the host's `ui/open-link` (verified in the test host. In Ri the posting link opened `https://lumen.example/careers/staff-designer` and Open in browser opened `/opportunities?selected=<id>`, in a new tab on the web and in the system browser from the desktop app. ChatGPT and Claude pending). Where a host can't open it, or refuses it, the address shows to copy. Ri opens https links anywhere. |
 | View-only actions the model never saw (`visibility: app`) | Works | The person's decisions are view-only (MCP Apps' `visibility: ["app"]`). It's the host's rule: Ri enforces it, and so does the test host. A host that ignores it would let its model call them, so each still checks the caller's access, and a write still needs a connection that may write. |
 | Open in browser | New | In a host, the header and every card offer Open in browser, which opens the app's own page at the place the person is in, through the host's open-link. It's the way out for anything a host doesn't allow. An address on this computer isn't offered on a phone or tablet (the kit's rule), so away from the Mac the person has no way out until the app has a reachable address. |
+
+## Real hosts
+
+Checked on November 16, 2026. "Ri" is a **disposable Ri at f55cdf96** on this Mac with dummy and fictional records, not Trey's own Ri. Job Search ran as the installed service at `http://127.0.0.1:4312` (release 0c3c59b) and Ri connected it through the consent screen. Full-screen checks used **Add MCP server** (R6). Screenshots: `docs/parity/ri-*.png`.
+
+| Check | Ri on the web | Ri's desktop app | ChatGPT | Claude |
+| --- | --- | --- | --- | --- |
+| Connect, `open_job_search` and the tools listed | Works: consent, token, 41 tools including `open_job_search` and `search_mentions` | Same connection | Pending | Pending (desktop set up, waits on a restart) |
+| Every screen (Today, Opportunities board and workspace, Materials, Sources) | Works, with the fictional preview | Works (workspace, board, Sources) | Pending | Pending |
+| Person-only actions from the view | Work: `load_preview`, `preview_import`, `apply_import`, export | Work: export | Pending | Pending |
+| The model can't call them | Refused: `export_records`, `clear_preview` | Same Ri server | Pending | Pending |
+| Links out and Open in browser | Posting link and Open in browser open in a new tab | Open in the system browser | Pending | Pending |
+| Saving files | Ri's card, then saved (`job-search-export-2026-11-17.json`) | Same, saved through Electron's download | Pending | Pending |
+| Picking files | Chooser opens in the frame, a dummy description saved | Chooser opens | Pending | Pending |
+| Ask drafts | In the main chat's draft, unsent | Same | Pending | Pending |
+| Opening at a record | `/opportunities/<id>` opens Lumen | Same | Pending | Pending |
+| The @ menu | Finds Lumen and its cover letter | Not checked | Pending | Pending |
+| Selection reaching the next message | Doesn't (R7) | Doesn't (R7) | Pending | Pending |
+| Light and dark | Dark only in Ri (R8). The app follows it | Same | Pending | Pending |
+| Phone and desktop widths | 390 px fits, no sideways scroll; 1396 px | Window is at least 800 px wide, 390 px emulated | Pending | Pending |
+| View size and load time | View 1,116,256 bytes. Warm reload 1.1 s, open by link 5.0 s (Ri's dev server) | Open at a record 10.9 s under heavy load | Pending | Pending |
+
+Load times are from Ri's development server on a heavily loaded Mac (load average 150 to 250), so they're upper bounds. The disposable Ri had no model harness, so cards from `show_*` and reading an @ item at send weren't checked.
+
+Small things seen, not fixed: the consent screen reads "All your parts of your job search, including new ones" (the sources' plural label after "All your"), and the export's file name uses the UTC date (`2026-11-17` on the evening of November 16 in Denver).
 
 ## What's still blocked
 
@@ -166,8 +192,7 @@ All of these run on the same code as before and pass the same tests (`test/rules
 | A deleted account's source can come back in an old connection's choice | Kit gap K8. |
 | The app finding which accounts Ri granted | Kit gap K1 (and Ri, R1). The person adds each account. |
 | Invitation files, reply linkage and calendar participants with only the kit's basic mail and calendar tools | Kit gaps K2 and K3. The app uses Ri's Gmail and Calendar tools by name when Ri lends them. |
-| Saving the export inside Ri | Ri's host has no `ui/download-file` until dynamismlabs/ri#2 merges. Open in browser covers it. |
-| Choosing a file inside a host's frame | A host's own rule, to be tested per host. Open in browser covers it. |
+| Choosing a file inside a host's frame | Works in Ri (web and desktop): Save a job, then "Choose a PDF, Word or text file", opened the chooser from the frame. ChatGPT and Claude are untested. Open in browser covers a host that refuses. |
 | Open in browser on a phone or tablet | The kit doesn't offer an address on this computer away from it. The app has no other address while it runs on the Mac. |
 
 ## Findings for the kit
@@ -187,5 +212,9 @@ Closed by core 0.2.2: K4 (opening at a record), K5 (view-only tools), K6 (a wide
 
 - **R1. Accounts.** See K1.
 - **R2. Approval for tasks.** The shared spec says an app's writes to the person's own data, such as Ri tasks, follow the person's normal settings and don't ask by default. Ri's hub, as read on November 12, asked for every app write. Not rechecked against Ri since. Job Search handles both: the follow-up waits for approval and its job retries the identical call.
-- **R4. Downloads.** Ri's host saves a view's file only once dynamismlabs/ri#2 merges.
+- **R4. Downloads.** Fixed by dynamismlabs/ri#2: export inside Ri saves through Ri's card.
+- **R5. A tool input named `account`.** Ri's engine reserves `account` and refuses a whole server whose tool declares it. `set_source`, `list_source_calendars` and `preview_source` took `account`, so Ri couldn't add Job Search at all. They now take `sourceAccount` (commit 0c3c59b, with a contract test). Ri should skip or rename that one tool rather than refuse the server.
+- **R6. Add app can't open a screen.** Ri publishes an app added with Add app as `app_<slug>.<tool>`, but Open app, the view's calls, the @ search and settings call `mcp.<slug>.<tool>`, which Ri doesn't know ("unknown action"). Add MCP server works around it.
+- **R7. A full-screen app's selection never reaches a message.** Ri drops a view's context when it closes, and its full-page screen has no chat beside it.
+- **R8. Ri has only a dark theme,** so the app's light look inside Ri can't be checked.
 - **R3. The model service** needs Ri's Claude subscription harness. Without it, Job Search's AI suggestions and email readings report "Extraction unavailable".
