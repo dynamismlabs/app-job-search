@@ -34,7 +34,7 @@ export const resolveMatchAction = defineAction({
     role: z.string().max(200).optional(),
   }).strict(),
   output: writeResultSchema(z.object({ review: reviewItemSchema, opportunityId: id.nullable() }).strict()),
-  audience: ['user', 'agent'], effect: 'app_write', retry: 'idempotent', errors: [...WRITE_ERRORS],
+  audience: ['user', 'agent'], effect: 'app_write', retry: 'idempotent', viewOnly: true, errors: [...WRITE_ERRORS],
   examples: [{ input: { reviewId: EX.review, expectedRevision: 1, decision: 'attach', opportunityId: EX.opportunity, applyStage: false }, output: { status: 'saved', record: { review: { ...exampleReview, status: 'resolved', revision: 2, decision: 'Attached' }, opportunityId: EX.opportunity } } }],
   handler: (input, invocation) => {
     const scope = invocation.scope;

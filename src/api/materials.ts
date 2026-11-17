@@ -100,7 +100,7 @@ export const archiveMaterialAction = defineAction({
   description: 'Archive or restore a material. Archived materials keep every version and remain linked to the submissions that used them.',
   input: z.object({ id, expectedRevision: z.number().int().min(0), archived: z.boolean() }).strict(),
   output: writeResultSchema(materialFamilySchema),
-  audience: ['user'], effect: 'app_write', retry: 'idempotent', visibility: 'app', errors: [...WRITE_ERRORS],
+  audience: ['user'], effect: 'app_write', retry: 'idempotent', viewOnly: true, visibility: 'app', errors: [...WRITE_ERRORS],
   examples: [{ input: { id: EX.material, expectedRevision: 4, archived: true }, output: { status: 'saved', record: { ...exampleMaterial, archivedAt: '2026-10-15T09:00:00.000Z' } } }],
   handler: (input, invocation) => {
     const scope = writeScope(invocation, MATERIALS_SOURCE, 'your materials');

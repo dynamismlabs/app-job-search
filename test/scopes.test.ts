@@ -107,9 +107,10 @@ describe('app data scopes', () => {
 
   it('chats cannot export or manage sources, and a read-only connection cannot write', async () => {
     const plainChat = chat('c-plain', scopes.plainChat);
-    // Export and deleting imported data are for the person's browser only; they're not assistant tools at all.
-    await expect(call('export_records', {}, plainChat)).rejects.toThrow(/unavailable/);
-    await expect(call('delete_source_data', { source: 'account:acct-work', confirm: 'delete' }, plainChat)).rejects.toThrow(/unavailable/);
+    // Export and deleting imported data are view-only (the host keeps them from the model), and they
+    // still check the caller: a connection limited to some sources can't export, and a read-only one can't delete.
+    await expect(call('export_records', {}, plainChat)).rejects.toThrow(/Only the person who owns this app/);
+    await expect(call('delete_source_data', { source: 'account:acct-work', confirm: 'delete' }, plainChat)).rejects.toThrow(/can read but not make changes/);
     await expect(call('list_sources', {}, plainChat)).rejects.toThrow(/can see all of Job Search/);
     // The core refuses a read-only connection before the action runs.
     await expect(call('save_opportunity', { company: 'Pinecrest', role: 'Platform designer' }, plainChat)).rejects.toThrow(/can read but not make changes/);

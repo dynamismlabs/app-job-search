@@ -5,10 +5,12 @@
  * tRPC, the assistant view and every MCP client.
  *
  * What changed on the way:
- * - Audience. Ri had view-only actions (`visibility: 'app'`) the model never
- *   saw. MCP Apps views reach the app only through tools the host lists, and
- *   the core has no view-only tools, so the actions the view needs are
- *   assistant tools too. Destructive ones stay browser-only (`browserOnly`).
+ * - Audience. Every action the screens call is an MCP tool, since a view in an
+ *   assistant reaches the app only through the host. The person's own
+ *   decisions (review, deleting, importing, source setup) are view-only
+ *   (`viewOnly`, MCP Apps' `visibility: ["app"]`): a host that follows MCP Apps,
+ *   as Ri does, keeps them from the model. That's the host's rule, so each
+ *   still checks the caller's access and needs a connection that may write.
  * - Retries. Ri gave every call a durable invocation ID. MCP has none, so a
  *   write takes an optional `operationId`: a retry with the same one returns
  *   the first result without writing again.
@@ -33,12 +35,12 @@ export interface ActionDefinition<I = unknown, O = unknown> {
   audience: ("user" | "agent" | "schedule")[];
   effect: "read" | "app_write" | "app_delete";
   retry: "read_safe" | "idempotent" | "unsafe";
-  /** Ri's view-only marker. Kept for the record; see the note above. */
+  /** Ri's view-only marker, which said the view called it. `viewOnly` is what hosts enforce now. */
   visibility?: "app" | "both";
   /** Ri's per-call time limit. The core has none; kept for the record. */
   timeoutMs?: number;
-  /** Only the person's own browser may run it, never an assistant connection. */
-  browserOnly?: boolean;
+  /** The person's own decision: the view calls it, and a host that follows MCP Apps keeps it from the model. */
+  viewOnly?: boolean;
   errors?: readonly string[];
   examples?: { input: unknown; output: unknown }[];
   handler(input: I, invocation: AppInvocation): Promise<O> | O;
@@ -77,7 +79,7 @@ export function toAction(definition: ActionDefinition<any, any>): Action {
   const base = definition.input as z.AnyZodObject;
   const ownsOperation = "operationId" in (base.shape ?? {});
   const input = write && !ownsOperation ? base.extend({ operationId }) : base;
-  const audience: ("user" | "agent")[] = definition.browserOnly || definition.audience.includes("schedule") ? ["user"] : ["user", "agent"];
+  const audience: ("user" | "agent")[] = definition.audience.includes("schedule") ? ["user"] : ["user", "agent"];
   return coreAction({
     name: definition.name,
     title: definition.title ?? titleOf(definition.name),
@@ -87,9 +89,8 @@ export function toAction(definition: ActionDefinition<any, any>): Action {
     audience,
     effect: definition.effect === "read" ? "read" : definition.effect === "app_delete" ? "delete" : "write",
     retry: definition.retry === "unsafe" ? "unsafe" : "safe",
+    ...(definition.viewOnly ? { visibility: ["app"] as ("model" | "app")[] } : {}),
     handler: async (ctx, parsed) => {
-      if (definition.browserOnly && ctx.connection)
-        throw toActionError(Object.assign(new Error(`Open ${"Job Search"} in your browser to do this.`), { name: "AppError", code: "forbidden" }));
       const { operationId: id, ...rest } = parsed as Record<string, unknown> & { operationId?: string };
       const handlerInput = ownsOperation ? parsed : rest;
       return runHandler(ctx, (invocation) => definition.handler(handlerInput, invocation), { operationId: id });

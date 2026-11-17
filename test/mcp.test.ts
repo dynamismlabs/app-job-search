@@ -41,7 +41,9 @@ describe('as an MCP server', () => {
     const client = await connect(accessToken);
     const names = (await client.listTools()).tools.map((tool) => tool.name);
     expect(names).toEqual(expect.arrayContaining(['list_opportunities', 'save_opportunity', 'get_today', 'show_opportunities', 'show_today', 'open_job_search']));
-    expect(names).not.toContain('delete_source_data');
+    // View-only tools are listed for the view, marked for the host to keep from its model.
+    const deleting = (await client.listTools()).tools.find((tool) => tool.name === 'delete_source_data');
+    expect(deleting?._meta?.ui).toMatchObject({ visibility: ['app'] });
     const resources = await client.listResources();
     expect(resources.resources.map((resource) => resource.uri)).toContain('ui://job-search/main');
     await client.close();
@@ -80,6 +82,31 @@ describe('as an MCP server', () => {
     expect(removed.status).toBeLessThan(300);
     const after = await server.request(`${BASE}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
     expect(after.status).toBe(401);
+  });
+});
+
+describe('opening at a record and the @ menu', () => {
+  it('offers records under each connection\'s access, reads one as text, and opens the app at its path', async () => {
+    await setup();
+    const lumen = (await call('save_opportunity', { company: 'Lumen', role: 'Staff designer', description: 'Staff designer at Lumen\n\nRequirements\n- Lead design critiques.' }, owner())).record;
+    const material = (await call('save_material_version', { kind: 'resume', title: 'Product design résumé', text: 'Sam Rivera\nFictional résumé' }, owner())).record.material;
+    const everything = await connect((await createTestConnection(platform(), { name: 'Ri' })).accessToken);
+    const found = await everything.callTool({ name: 'search_mentions', arguments: { query: 'lum' } });
+    const items = (found.structuredContent as { items: { uri: string; title: string }[] }).items;
+    expect(items.map((item) => item.uri)).toContain(`app://job-search/opportunities/${lumen.id}`);
+    const read = await everything.readResource({ uri: `app://job-search/opportunities/${lumen.id}` });
+    const text = (read.contents[0] as { text: string }).text;
+    expect(text).toContain('Lumen');
+    expect(text).toContain('Lead design critiques');
+    expect(text).toContain(`/opportunities/${lumen.id}`);
+    const opened = await everything.callTool({ name: 'open_job_search', arguments: { path: `/opportunities/${lumen.id}` } });
+    expect(opened.structuredContent).toEqual({ view: 'open_job_search', path: `/opportunities/${lumen.id}` });
+    // A connection given only saved jobs finds no materials, and can't read one by its address.
+    const limited = await connect((await createTestConnection(platform(), { name: 'Ri · Family', sources: ['manual'] })).accessToken);
+    const none = await limited.callTool({ name: 'search_mentions', arguments: { query: 'résumé' } });
+    expect((none.structuredContent as { items: unknown[] }).items).toEqual([]);
+    await expect(limited.readResource({ uri: `app://job-search/materials/${material.id}` })).rejects.toThrow(/isn't available/);
+    await everything.close(); await limited.close();
   });
 });
 

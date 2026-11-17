@@ -57,7 +57,7 @@ export const setSourceAction = defineAction({
   description: `Add or change one account read through Ri: history range (30, 90 or 365 days), the calendars to read for interviews, whether it updates automatically, or pause and resume updates. Use account "${DEFAULT_ACCOUNT}" for the one account Ri allows, or the account's address as Ri shows it when Ri allows several.`,
   input: z.object({ account: z.string().min(1).max(128), kind: z.enum(['mail', 'calendar']), historyDays: z.union([z.literal(30), z.literal(90), z.literal(365)]).optional(), calendars: z.array(z.string().min(1).max(1024)).max(10).optional(), paused: z.boolean().optional(), automatic: z.boolean().optional() }).strict(),
   output: z.object({ source: sourceSummarySchema }).strict(),
-  audience: ['user'], effect: 'app_write', retry: 'idempotent', visibility: 'app',
+  audience: ['user'], effect: 'app_write', retry: 'idempotent', viewOnly: true, visibility: 'app',
   examples: [{ input: { account: 'default', kind: 'mail', historyDays: 90 }, output: { source: exampleSource } }],
   handler: async (input, invocation) => {
     ownerOnly(invocation);
@@ -110,7 +110,7 @@ export const continueImportAction = defineAction({
   description: 'Run one bounded import step for one account now, the same step the app\'s schedule runs: one provider page and at most ten new messages, or one small enrichment batch.',
   input: z.object({ source: z.string().regex(/^account:.{1,128}$/) }).strict(),
   output: stepSummarySchema,
-  audience: ['user'], effect: 'app_write', retry: 'idempotent', timeoutMs: 40_000, visibility: 'app', errors: ['forbidden', 'revoked', 'busy', 'timeout'],
+  audience: ['user'], effect: 'app_write', retry: 'idempotent', viewOnly: true, timeoutMs: 40_000, visibility: 'app', errors: ['forbidden', 'revoked', 'busy', 'timeout'],
   examples: [{ input: { source: 'account:conn-mail-1' }, output: exampleStep }],
   handler: async (input, invocation) => {
     ownerOnly(invocation);
@@ -135,7 +135,7 @@ export const deleteSourceDataAction = defineAction({
   description: 'Delete everything imported from one account: messages, cached bodies, interviews from its calendar, stage changes it caused and its review items. Opportunities, notes, preparation and materials the person wrote are kept, and the account is removed from Sources. What Ri lends the app is changed in Ri.',
   input: z.object({ source: z.string().regex(/^account:.{1,128}$/), confirm: z.literal('delete') }).strict(),
   output: z.object({ removedMessages: z.number().int(), removedInterviews: z.number().int(), restoredStages: z.number().int() }).strict(),
-  audience: ['user'], effect: 'app_delete', retry: 'idempotent', visibility: 'app', browserOnly: true,
+  audience: ['user'], effect: 'app_delete', retry: 'idempotent', viewOnly: true, visibility: 'app',
   examples: [{ input: { source: 'account:conn-mail-1', confirm: 'delete' }, output: { removedMessages: 24, removedInterviews: 1, restoredStages: 2 } }],
   handler: (input, invocation) => {
     ownerOnly(invocation);

@@ -84,7 +84,7 @@ export const suggestPreparationAction = defineAction({
   description: 'Ask Ri\'s bounded AI for preparation suggestions drawn only from the saved posting, the person\'s submitted materials and examples, and permitted correspondence. Each suggestion quotes its sources. Suggestions that cite nothing or introduce employers, numbers or credentials not in the sources are dropped. When AI is unavailable the preparation stays fully usable by hand.',
   input: z.object({ preparationId: id }).strict(),
   output: suggestOutput,
-  audience: ['user'], effect: 'app_write', retry: 'idempotent', timeoutMs: 60_000, visibility: 'app', errors: [...WRITE_ERRORS, 'unsupported'],
+  audience: ['user'], effect: 'app_write', retry: 'idempotent', viewOnly: true, timeoutMs: 60_000, visibility: 'app', errors: [...WRITE_ERRORS, 'unsupported'],
   examples: [{ input: { preparationId: EX.preparation }, output: { preparation: examplePreparation, outcome: 'unavailable', message: 'Extraction unavailable. Your preparation still works by hand, and Prepare with Ri uses your chat instead.' } }],
   handler: async (input, invocation) => {
     const scope = writeScope(invocation);

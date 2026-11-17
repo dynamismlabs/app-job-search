@@ -150,7 +150,7 @@ export const setStageTrackingAction = defineAction({
   description: 'Choose whether email and calendar evidence may update this opportunity\'s stage again, or keep the stage the person set.',
   input: z.object({ id, expectedRevision: z.number().int().min(0), automatic: z.boolean() }).strict(),
   output: writeResultSchema(opportunityRecordSchema),
-  audience: ['user'], effect: 'app_write', retry: 'idempotent', visibility: 'app', errors: [...WRITE_ERRORS],
+  audience: ['user'], effect: 'app_write', retry: 'idempotent', viewOnly: true, visibility: 'app', errors: [...WRITE_ERRORS],
   examples: [{ input: { id: EX.opportunity, expectedRevision: 4, automatic: true }, output: { status: 'saved', record: exampleRecord } }],
   handler: (input, invocation) => {
     const scope = writeScope(invocation);

@@ -28,14 +28,26 @@ describe('contract', () => {
     for (const name of ['open_view', 'describe_view_context', 'create_scope', 'list_scopes', 'revoke_scope', 'sync_step', 'enrich_step']) expect(names).not.toContain(name);
   });
 
-  it('lists assistant tools with output schemas, and keeps browser-only and job actions off MCP', () => {
+  it('lists assistant tools with output schemas, marks the person\'s decisions view-only, and keeps job actions off MCP', async () => {
     const names = tools.map((tool) => tool.name);
-    for (const name of ['export_records', 'delete_source_data', 'delete_import', 'load_preview', 'clear_preview', 'run_background_step', 'create_waiting_follow_ups']) {
+    const viewOnly = ['resolve_match', 'delete_source_data', 'delete_import', 'preview_import', 'apply_import', 'load_preview', 'clear_preview', 'export_records', 'set_source', 'continue_import', 'set_stage_tracking', 'suggest_preparation', 'archive_material'];
+    for (const name of viewOnly) {
+      const tool = tools.find((item) => item.name === name)!;
+      expect(tool, name).toBeTruthy();
+      expect(tool._meta?.ui, name).toMatchObject({ visibility: ['app'] });
+      expect(tool._meta?.['openai/visibility'], name).toBe('private');
+    }
+    // The model sees the rest. The core's @ menu search is view-only too.
+    const forModel = tools.filter((tool) => ((tool._meta?.ui as { visibility?: string[] } | undefined)?.visibility ?? ['model', 'app']).includes('model')).map((tool) => tool.name).sort();
+    expect(forModel.filter((name) => viewOnly.includes(name))).toEqual([]);
+    expect(names).toContain('search_mentions');
+    expect(forModel).not.toContain('search_mentions');
+    for (const name of ['run_background_step', 'create_waiting_follow_ups']) {
       expect(names).not.toContain(name);
       expect(by(name).audience).toEqual(['user']);
     }
-    for (const name of ['list_opportunities', 'save_opportunity', 'change_stage', 'list_sources', 'set_source', 'continue_import', 'preview_import', 'apply_import', 'get_view_state', 'show_opportunities', 'show_today', 'open_job_search'])
-      expect(names).toContain(name);
+    for (const name of ['list_opportunities', 'save_opportunity', 'change_stage', 'list_sources', 'get_view_state', 'show_opportunities', 'show_today', 'open_job_search'])
+      expect(forModel).toContain(name);
     for (const tool of tools) {
       expect(tool.outputSchema, tool.name).toBeTruthy();
       expect(tool.name).not.toMatch(/__|\.\.|\._|_\./);
@@ -43,6 +55,9 @@ describe('contract', () => {
     }
     const open = tools.find((tool) => tool.name === 'open_job_search')!;
     expect(open._meta?.['openai/ui']).toEqual({ entrypoints: [{ type: 'global' }] });
+    // open_job_search opens at a record, and says which paths it takes.
+    expect((open.inputSchema as { properties: Record<string, unknown> }).properties.path).toBeTruthy();
+    expect(JSON.stringify(open.inputSchema)).toContain('/opportunities/<id>');
     expect((tools.find((tool) => tool.name === 'show_opportunities')!._meta?.ui as { resourceUri: string }).resourceUri).toBe('ui://job-search/main');
   });
 

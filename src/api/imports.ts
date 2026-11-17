@@ -31,7 +31,7 @@ export const previewImportAction = defineAction({
   description: 'Read a job description (pasted text, a link with or without a pasted description, or a PDF, Word or text file), a résumé or cover letter, or a CSV of opportunities, and show what would be saved, with possible duplicates. Nothing is saved until apply_import. A link alone is kept as a link, never fetched.',
   input: previewActionInput,
   output: previewOutput,
-  audience: ['user'], effect: 'app_write', retry: 'idempotent', visibility: 'app', errors: ['invalid_input', 'forbidden', 'unsupported'],
+  audience: ['user'], effect: 'app_write', retry: 'idempotent', viewOnly: true, visibility: 'app', errors: ['invalid_input', 'forbidden', 'unsupported'],
   examples: [{
     input: { kind: 'posting', url: 'https://jobs.fieldwork.example/product-lead', text: 'Product lead at Fieldwork\nLocation: Remote, US\n\nRequirements\n- Five years leading product teams' },
     output: {
@@ -62,7 +62,7 @@ export const applyImportAction = defineAction({
     }).strict().optional(),
   }).strict(),
   output: z.object({ status: z.literal('applied'), kind: z.enum(['posting', 'material', 'opportunities']), opportunityIds: z.array(id), materialId: id.nullable(), snapshotId: id.nullable(), created: z.number().int(), skipped: z.number().int() }).strict(),
-  audience: ['user'], effect: 'app_write', retry: 'idempotent', visibility: 'app', errors: ['invalid_input', 'forbidden', 'not_found', 'conflict'],
+  audience: ['user'], effect: 'app_write', retry: 'idempotent', viewOnly: true, visibility: 'app', errors: ['invalid_input', 'forbidden', 'not_found', 'conflict'],
   examples: [{ input: { previewId: EX.preview, digest: EX.digest, decisions: { company: 'Fieldwork', role: 'Product lead' } }, output: { status: 'applied', kind: 'posting', opportunityIds: [EX.opportunity], materialId: null, snapshotId: EX.snapshot, created: 1, skipped: 0 } }],
   handler: (input, invocation) => {
     requireOwner(invocation, 'Only the person who owns this app can import files');
@@ -90,7 +90,7 @@ export const deleteImportAction = defineAction({
   description: 'Delete what one imported file created, keeping anything the person has built on since: a description used by preparation, a submitted material, or an opportunity with its own history.',
   input: z.object({ id, confirm: z.literal('delete') }).strict(),
   output: z.object({ removed: z.number().int(), kept: z.number().int(), message: z.string() }).strict(),
-  audience: ['user'], effect: 'app_delete', retry: 'idempotent', visibility: 'app', browserOnly: true, errors: ['not_found', 'conflict', 'forbidden'],
+  audience: ['user'], effect: 'app_delete', retry: 'idempotent', viewOnly: true, visibility: 'app', errors: ['not_found', 'conflict', 'forbidden'],
   examples: [{ input: { id: EX.preview, confirm: 'delete' }, output: { removed: 2, kept: 0, message: '2 removed' } }],
   handler: (input, invocation) => {
     requireOwner(invocation, 'Only the person who owns this app can manage imports');

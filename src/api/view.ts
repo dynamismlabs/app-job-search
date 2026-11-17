@@ -87,7 +87,7 @@ export const exportRecordsAction = defineAction({
   description: 'Export the person\'s own Job Search records as a JSON file to download: opportunities with stage history, posting snapshots, interviews, submissions, preparation, materials and follow-ups. Message bodies are not included.',
   input: z.object({}).strict(),
   output: z.object({ fileName: z.string(), mimeType: z.literal('application/json'), text: z.string(), opportunities: z.number().int(), materials: z.number().int() }).strict(),
-  audience: ['user'], effect: 'read', retry: 'read_safe', visibility: 'app', browserOnly: true, errors: ['forbidden', 'invalid_input'],
+  audience: ['user'], effect: 'read', retry: 'read_safe', viewOnly: true, visibility: 'app', errors: ['forbidden', 'invalid_input'],
   examples: [{ input: {}, output: { fileName: 'job-search-export-2026-10-15.json', mimeType: 'application/json', text: '{"format":"ri-job-search-export","version":1}', opportunities: 5, materials: 2 } }],
   handler: (_input, invocation) => {
     requireOwner(invocation, 'Only the person who owns this app can export its records');
@@ -105,7 +105,7 @@ export const loadPreviewAction = defineAction({
   description: 'Fill an empty Job Search with a fictional preview: invented companies, people, mail and calendar events, marked as fictional everywhere. It does nothing once any record exists.',
   input: z.object({}).strict(),
   output: previewResult,
-  audience: ['user'], effect: 'app_write', retry: 'idempotent', visibility: 'app', browserOnly: true,
+  audience: ['user'], effect: 'app_write', retry: 'idempotent', viewOnly: true, visibility: 'app',
   handler: (_input, invocation) => {
     requireOwner(invocation, 'Only the person who owns this app can load the preview');
     const seeded = seedFixtures();
@@ -119,7 +119,7 @@ export const clearPreviewAction = defineAction({
   description: 'Remove every fictional preview record: its opportunities, materials, mailbox, calendar, review items and follow-up links. Records the person added stay.',
   input: z.object({}).strict(),
   output: previewResult,
-  audience: ['user'], effect: 'app_delete', retry: 'idempotent', visibility: 'app', browserOnly: true,
+  audience: ['user'], effect: 'app_delete', retry: 'idempotent', viewOnly: true, visibility: 'app',
   handler: (_input, invocation) => {
     requireOwner(invocation, 'Only the person who owns this app can remove the preview');
     const removed = clearFixtures();

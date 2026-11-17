@@ -25,6 +25,7 @@ import { accessNow, app } from "./server/state.js";
 import { exportRecords } from "./server/view.js";
 import { MIGRATIONS } from "./server/migrations.js";
 import { views } from "./views.js";
+import { RECORD_PATHS, readRecord, searchRecords } from "./server/mentions.js";
 
 const definitions = [...viewActions, ...opportunityActions, ...interviewActions, ...materialActions, ...preparationActions, ...reviewActions, ...followUpActions, ...importActions, ...sourceActions];
 
@@ -49,6 +50,15 @@ export const application: Application = {
         detail: "Job email and calendar interviews read from this account through Ri",
       })),
     ]),
+  },
+  /**
+   * Records a host can open the app at (`open_job_search`'s path) and offer in
+   * its @ menu. Read under the connection's access, like any read.
+   */
+  records: {
+    paths: RECORD_PATHS,
+    search: (ctx, query) => runHandler(ctx, (invocation) => searchRecords(invocation.scope, query)),
+    read: (ctx, path) => runHandler(ctx, (invocation) => readRecord(invocation.scope, invocation.access, path)),
   },
   /** Ri's schedule in the old app; the app's own durable runner now. */
   jobs: [
