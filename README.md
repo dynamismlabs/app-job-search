@@ -23,13 +23,13 @@ Commit, then install it as your own service from this folder:
 pnpm exec app-builder serve --install
 ```
 
-It prints its address, `http://127.0.0.1:4310` by default (`PORT` changes it). Data lives in `~/.local/share/job-search`, or `APP_DATA_DIR`. Change a running app with `pnpm exec app-builder change`, which checks the new commit in a separate copy before switching. For development, use `pnpm dev` with a disposable `APP_DATA_DIR`, and `APP_CONNECTORS=fixtures` to read the fictional hub in `fixtures/connectors.json`.
+It prints its address, `http://127.0.0.1:4561` by default (`PORT` changes it). Data lives in `~/.local/share/job-search`, or `APP_DATA_DIR`. Change a running app with `pnpm exec app-builder change`, which checks the new commit in a separate copy before switching. For development, use `pnpm dev` with a disposable `APP_DATA_DIR`, and `APP_CONNECTORS=fixtures` to read the fictional hub in `fixtures/connectors.json`.
 
 It runs on the computer only, not on Cloudflare. [docs/parity.md](docs/parity.md) says why.
 
 ## Connecting
 
-- **Ri, Claude, ChatGPT**: add `http://127.0.0.1:4310/mcp` as an MCP server. Each place that connects gets the consent screen, which asks which parts of your job search it may see (saved jobs, materials, each account) and whether it may also make changes. Settings lists the connections and disconnects them.
+- **Ri, Claude, ChatGPT**: add `http://127.0.0.1:4561/mcp` as an MCP server. Each place that connects gets the consent screen, which asks which parts of your job search it may see (saved jobs, materials, each account) and whether it may also make changes. Settings lists the connections and disconnects them.
 - **Ri's hub**: in Settings, under "Your accounts through Ri", enter Ri's integrations address (or set `APP_HUB_URL`) and approve in Ri. Allow Gmail, Google Calendar, "Use your model", "Read the text of files it sends" and "Add tasks" as you want. Then add each account in Sources.
 
 Assistants get the data tools (`list_opportunities`, `get_opportunity`, `get_today` and the rest), two cards (`show_opportunities`, `show_today`) and `open_job_search`, the whole app, which can open at an opportunity, an interview or a material. Hosts with an @ menu (Ri) offer your opportunities, interviews and materials there. Your own decisions, such as review decisions, deleting and importing, are only for you in the app's screens: hosts that follow MCP Apps, as Ri does, keep them from their model. In a host, Open in browser takes you to the app's own page.

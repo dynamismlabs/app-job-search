@@ -4,7 +4,7 @@ Job Search was an app bundled in Ri (`apps/job-search`, last at Ri commit `3c442
 
 Every feature and behavior from the old README and tests is listed below with one of three marks:
 
-- **Works**: the same behavior, checked by the ported tests or by hand. A line about assistants that says "verified in the test host" was checked in the kit's strict MCP Apps test host. Ri was then checked on November 16, 2026 in a **disposable Ri at f55cdf96** on this Mac, on the web and in its desktop app, with dummy and fictional records only (not Trey's own Ri, which runs on another computer). Those lines say what Ri did. ChatGPT and Claude are still pending. Details in [Real hosts](#real-hosts), screenshots in `docs/parity/`.
+- **Works**: the same behavior, checked by the ported tests or by hand. A line about assistants that says "verified in the test host" was checked in the kit's strict MCP Apps test host. Ri was then checked on November 16, 2026 in a **disposable Ri at f55cdf96** on this Mac, on the web and in its desktop app, with dummy and fictional records only (not a Ri Home in everyday use, which runs on another computer). Those lines say what Ri did. ChatGPT and Claude are still pending. Details in [Real hosts](#real-hosts), screenshots in `docs/parity/`.
 - **Works differently**: the person or an assistant can still do it, in a different way. The entry says how.
 - **Can't work**: it can't work on the new path today. The entry says why and what the kit or Ri would need.
 
@@ -32,7 +32,7 @@ The findings that need a change in the kit or in Ri are collected at the end.
   
   One note on the harness: in this headless Chrome, a pointer click doesn't reach a button the sandboxed frame had to scroll to (the frame scrolls, and a dispatched click works), so the check presses Enter on those two buttons.
 - **Installed and checked in Ri** (November 16): installed as this Mac's service with `PORT=4312 APP_HOST=127.0.0.1 APP_URL=http://127.0.0.1:4312 pnpm exec app-builder serve --install HEAD --json` (every step passed; launchd `local.job-search`, data in `~/.local/share/job-search`), then `change HEAD --json` to 0c3c59b, the `sourceAccount` fix. `pnpm typecheck` and `pnpm test` pass: 9 files, 103 tests, and the new contract test fails on the old code. Then the checks in [Real hosts](#real-hosts) in a disposable Ri at f55cdf96, driven with Playwright in Ri's web app and its source Electron app. The fictional preview, the dummy job and its import were removed afterwards, and the disposable Ri's connection was disconnected in Settings.
-- **Not checked**: Trey's own Ri, ChatGPT and Claude, Ri's real hub with a real Gmail account, and the app connecting to a real hub with OAuth (the kit tests that against its stand-in hub).
+- **Not checked**: a Ri Home in everyday use, ChatGPT and Claude, Ri's real hub with a real Gmail account, and the app connecting to a real hub with OAuth (the kit tests that against its stand-in hub).
 
 ## What it does
 
@@ -161,7 +161,7 @@ All of these run on the same code as before and pass the same tests (`test/rules
 
 ## Real hosts
 
-Checked on November 16, 2026. "Ri" is a **disposable Ri at f55cdf96** on this Mac with dummy and fictional records, not Trey's own Ri. Job Search ran as the installed service at `http://127.0.0.1:4312` (release 0c3c59b) and Ri connected it through the consent screen. Full-screen checks used **Add MCP server** (R6). Screenshots: `docs/parity/ri-*.png`.
+Checked on November 16, 2026. "Ri" is a **disposable Ri at f55cdf96** on this Mac with dummy and fictional records, not a Ri Home in everyday use. Job Search ran as the installed service at `http://127.0.0.1:4312` (release 0c3c59b) and Ri connected it through the consent screen. Full-screen checks used **Add MCP server** (R6). Screenshots: `docs/parity/ri-*.png`.
 
 | Check | Ri on the web | Ri's desktop app | ChatGPT | Claude |
 | --- | --- | --- | --- | --- |

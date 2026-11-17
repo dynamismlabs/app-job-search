@@ -3,5 +3,5 @@ export const appConfig: AppConfig = {
   id: "job-search",
   name: "Job Search",
   description: "Opportunities, interviews, correspondence and versioned materials together.",
-  port: 4310,
+  port: 4561,
 };
