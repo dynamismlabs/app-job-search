@@ -54,12 +54,13 @@ export const listSourcesAction = defineAction({
 
 export const setSourceAction = defineAction({
   name: 'set_source',
-  description: `Add or change one account read through Ri: history range (30, 90 or 365 days), the calendars to read for interviews, whether it updates automatically, or pause and resume updates. Use account "${DEFAULT_ACCOUNT}" for the one account Ri allows, or the account's address as Ri shows it when Ri allows several.`,
-  input: z.object({ account: z.string().min(1).max(128), kind: z.enum(['mail', 'calendar']), historyDays: z.union([z.literal(30), z.literal(90), z.literal(365)]).optional(), calendars: z.array(z.string().min(1).max(1024)).max(10).optional(), paused: z.boolean().optional(), automatic: z.boolean().optional() }).strict(),
+  description: `Add or change one account read through Ri: history range (30, 90 or 365 days), the calendars to read for interviews, whether it updates automatically, or pause and resume updates. Use sourceAccount "${DEFAULT_ACCOUNT}" for the one account Ri allows, or the account's address as Ri shows it when Ri allows several.`,
+  input: z.object({ sourceAccount: z.string().min(1).max(128), kind: z.enum(['mail', 'calendar']), historyDays: z.union([z.literal(30), z.literal(90), z.literal(365)]).optional(), calendars: z.array(z.string().min(1).max(1024)).max(10).optional(), paused: z.boolean().optional(), automatic: z.boolean().optional() }).strict(),
   output: z.object({ source: sourceSummarySchema }).strict(),
   audience: ['user'], effect: 'app_write', retry: 'idempotent', viewOnly: true, visibility: 'app',
-  examples: [{ input: { account: 'default', kind: 'mail', historyDays: 90 }, output: { source: exampleSource } }],
-  handler: async (input, invocation) => {
+  examples: [{ input: { sourceAccount: 'default', kind: 'mail', historyDays: 90 }, output: { source: exampleSource } }],
+  handler: async ({ sourceAccount, ...rest }, invocation) => {
+    const input = { ...rest, account: sourceAccount };
     ownerOnly(invocation);
     const hub = app().accounts.get(input.account, input.kind) ? null : await refreshHub(invocation);
     const allows = (kind: 'mail' | 'calendar') => hub ? hub[kind] : accessNow().accounts.some((item) => item.binding === kind);
@@ -70,26 +71,26 @@ export const setSourceAction = defineAction({
 export const listSourceCalendarsAction = defineAction({
   name: 'list_source_calendars',
   description: 'List the calendars of one Google Calendar account Ri lends this app, so the person can choose which ones to read for interviews.',
-  input: z.object({ account: z.string().min(1).max(128) }).strict(),
+  input: z.object({ sourceAccount: z.string().min(1).max(128) }).strict(),
   output: z.object({ calendars: z.array(z.object({ id: z.string(), summary: z.string(), primary: z.boolean(), accessRole: z.string().nullable() }).strict()) }).strict(),
   audience: ['user'], effect: 'read', retry: 'read_safe', visibility: 'app', errors: ['forbidden', 'revoked', 'busy', 'timeout'],
-  examples: [{ input: { account: 'conn-cal-1' }, output: { calendars: [{ id: 'primary', summary: 'you@example.test', primary: true, accessRole: 'owner' }] } }],
+  examples: [{ input: { sourceAccount: 'conn-cal-1' }, output: { calendars: [{ id: 'primary', summary: 'you@example.test', primary: true, accessRole: 'owner' }] } }],
   handler: async (input, invocation) => {
     ownerOnly(invocation);
-    return { calendars: await forAccount(() => listCalendars(invocation, input.account, 'calendar')) };
+    return { calendars: await forAccount(() => listCalendars(invocation, input.sourceAccount, 'calendar')) };
   },
 });
 
 export const previewSourceAction = defineAction({
   name: 'preview_source',
   description: 'Show up to ten recent application, recruiter, interview and offer emails from one mailbox Ri lends this app, by subject and sender only, so the person can see what the app would import. Nothing is stored.',
-  input: z.object({ account: z.string().min(1).max(128), historyDays: z.union([z.literal(30), z.literal(90), z.literal(365)]).default(90) }).strict(),
+  input: z.object({ sourceAccount: z.string().min(1).max(128), historyDays: z.union([z.literal(30), z.literal(90), z.literal(365)]).default(90) }).strict(),
   output: z.object({ matches: z.array(z.object({ subject: z.string(), from: z.string().nullable(), date: z.string().nullable(), label: z.string() }).strict()), query: z.string() }).strict(),
   audience: ['user'], effect: 'read', retry: 'read_safe', visibility: 'app', errors: ['forbidden', 'revoked', 'busy', 'timeout'],
-  examples: [{ input: { account: 'conn-mail-1', historyDays: 90 }, output: { matches: [{ subject: 'Thank you for applying to Lumen', from: 'Lumen Recruiting', date: '2026-10-12', label: 'Application received' }], query: 'Application, recruiter, interview and offer mail from the last 90 days, received and sent' } }],
+  examples: [{ input: { sourceAccount: 'conn-mail-1', historyDays: 90 }, output: { matches: [{ subject: 'Thank you for applying to Lumen', from: 'Lumen Recruiting', date: '2026-10-12', label: 'Application received' }], query: 'Application, recruiter, interview and offer mail from the last 90 days, received and sent' } }],
   handler: async (input, invocation) => {
     ownerOnly(invocation);
-    const target = { binding: 'mail', account: input.account };
+    const target = { binding: 'mail', account: input.sourceAccount };
     const after = Math.floor((Date.now() - input.historyDays * 864e5) / 1000);
     const search = z.object({ messages: z.array(z.object({ id: z.string() }).passthrough()).max(500) }).passthrough().parse(await forAccount(() => invocation.capability('gmail.search_messages', { query: `(${MAIL_QUERY}) after:${after}`, maxResults: 10 }, target)));
     const matches = [];

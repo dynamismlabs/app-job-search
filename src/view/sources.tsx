@@ -195,10 +195,10 @@ function Accounts() {
         imports={imports.data?.items ?? []}
         onConnect={() => document.getElementById('js-add-account')?.focus()}
         onManageAccess={() => app.manageAccess()}
-        onPause={async (id) => { await set.run({ account: target(id).account, kind: target(id).kind, paused: true }); set.reset(); sources.reload(); }}
+        onPause={async (id) => { await set.run({ sourceAccount: target(id).account, kind: target(id).kind, paused: true }); set.reset(); sources.reload(); }}
         onResume={async (id) => {
           const source = target(id);
-          if (source.paused) { await set.run({ account: source.account, kind: source.kind, paused: false }); set.reset(); sources.reload(); }
+          if (source.paused) { await set.run({ sourceAccount: source.account, kind: source.kind, paused: false }); set.reset(); sources.reload(); }
           else { const result = await step.run({ source: source.key }); step.reset(); announce(result.message); sources.reload(); }
         }}
         onContinue={async (id) => { const result = await step.run({ source: target(id).key }); step.reset(); announce(result.message); sources.reload(); }}
@@ -207,7 +207,7 @@ function Accounts() {
           else { const result = await removeImport.run({ id, confirm: 'delete' }); removeImport.reset(); announce(result.message); imports.reload(); }
           sources.reload();
         }}
-        onChangeHistory={async (id, days) => { await set.run({ account: target(id).account, kind: target(id).kind, historyDays: days }); set.reset(); sources.reload(); }}
+        onChangeHistory={async (id, days) => { await set.run({ sourceAccount: target(id).account, kind: target(id).kind, historyDays: days }); set.reset(); sources.reload(); }}
         note={<p>Job Search reads only the accounts you add here, through Ri, and only what Ri allows for this app. Email covers application, recruiter, interview and offer messages, including ones you sent. Calendar access is chosen separately and is used only to find interviews. Nothing is ever sent from this app. Which assistants may use Job Search, and what each may see, is in Settings.</p>}
       />
       {mailboxes.map((source) => <MailPreview key={source.key} source={source} />)}
@@ -265,7 +265,7 @@ function HubPanel({ hub, accounts, onSaved }: { hub: HubState; accounts: SourceS
         <div className="ri-stack ri-stack--tight">
           {accounts.map((source) => (
             <Checkbox key={source.key + source.kind} label={`Update ${source.label} (${source.kind === 'mail' ? 'mail' : 'calendar'}) automatically`} hint="Every five minutes, while Job Search runs" checked={source.automatic}
-              onChange={async (on) => { try { await save.run({ account: source.account, kind: source.kind, automatic: on }); save.reset(); onSaved(); } catch (failure) { setError(errorText(failure)); } }} />
+              onChange={async (on) => { try { await save.run({ sourceAccount: source.account, kind: source.kind, automatic: on }); save.reset(); onSaved(); } catch (failure) { setError(errorText(failure)); } }} />
           ))}
         </div>
       )}
@@ -279,7 +279,7 @@ function HubPanel({ hub, accounts, onSaved }: { hub: HubState; accounts: SourceS
             <Button variant="primary" busy={save.pending} onClick={async () => {
               setError(null);
               try {
-                const result = await save.run({ account: address.trim() || 'default', kind, automatic });
+                const result = await save.run({ sourceAccount: address.trim() || 'default', kind, automatic });
                 save.reset(); setAddress('');
                 announce(`${result.source.label} added`);
                 onSaved();
@@ -295,7 +295,7 @@ function HubPanel({ hub, accounts, onSaved }: { hub: HubState; accounts: SourceS
 
 function MailPreview({ source }: { source: SourceSummary }) {
   const [open, setOpen] = useState(false);
-  const preview = useQuery<{ matches: { subject: string; from: string | null; date: string | null; label: string }[]; query: string }>('preview_source', { account: source.account, historyDays: source.historyDays === 30 || source.historyDays === 365 ? source.historyDays : 90 }, { enabled: open });
+  const preview = useQuery<{ matches: { subject: string; from: string | null; date: string | null; label: string }[]; query: string }>('preview_source', { sourceAccount: source.account, historyDays: source.historyDays === 30 || source.historyDays === 365 ? source.historyDays : 90 }, { enabled: open });
   return (
     <section className="js-panel" aria-labelledby={`js-preview-${source.account}`}>
       <div className="ri-section-heading">
@@ -318,7 +318,7 @@ function MailPreview({ source }: { source: SourceSummary }) {
 function CalendarChoice({ source, onSaved }: { source: SourceSummary; onSaved: () => void }) {
   const announce = useAnnounce();
   const [open, setOpen] = useState(false);
-  const list = useQuery<{ calendars: { id: string; summary: string; primary: boolean }[] }>('list_source_calendars', { account: source.account }, { enabled: open });
+  const list = useQuery<{ calendars: { id: string; summary: string; primary: boolean }[] }>('list_source_calendars', { sourceAccount: source.account }, { enabled: open });
   const [chosen, setChosen] = useState<string[]>(source.calendars.length ? source.calendars : ['primary']);
   const save = useMutation<Record<string, unknown>, unknown>('set_source');
   const [error, setError] = useState<string | null>(null);
@@ -339,7 +339,7 @@ function CalendarChoice({ source, onSaved }: { source: SourceSummary; onSaved: (
             <Button variant="primary" busy={save.pending} onClick={async () => {
               setError(null);
               if (!chosen.length) return setError('Choose at least one calendar');
-              try { await save.run({ account: source.account, kind: 'calendar', calendars: chosen }); save.reset(); announce('Calendars saved'); setOpen(false); onSaved(); } catch (failure) { setError(errorText(failure)); }
+              try { await save.run({ sourceAccount: source.account, kind: 'calendar', calendars: chosen }); save.reset(); announce('Calendars saved'); setOpen(false); onSaved(); } catch (failure) { setError(errorText(failure)); }
             }}>Save calendars</Button>
             <Button variant="quiet" onClick={() => setOpen(false)}>Cancel</Button>
           </ButtonRow>

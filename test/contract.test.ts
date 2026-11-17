@@ -61,6 +61,14 @@ describe('contract', () => {
     expect((tools.find((tool) => tool.name === 'show_opportunities')!._meta?.ui as { resourceUri: string }).resourceUri).toBe('ui://job-search/main');
   });
 
+  it('no tool takes an input named account, which Ri reserves and refuses a server for', () => {
+    const declaring = tools.filter((tool) => {
+      const schema = tool.inputSchema as { properties?: Record<string, unknown>; anyOf?: { properties?: Record<string, unknown> }[] } | undefined;
+      return [schema, ...(schema?.anyOf ?? [])].some((part) => part?.properties && 'account' in part.properties);
+    }).map((tool) => tool.name);
+    expect(declaring).toEqual([]);
+  });
+
   it('marks reads and writes honestly, and every write takes an operation ID for a safe retry', () => {
     for (const action of contract.actions) {
       if (action.effect === 'read') continue;

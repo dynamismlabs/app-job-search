@@ -126,7 +126,7 @@ describe('bounded Gmail sync', () => {
     expect(provider.calls.filter((item) => item.name === 'gmail.read_message')).toHaveLength(1);
     expect((await detail(record.id)).correspondence).toHaveLength(1);
     // Widening the window reads older mail for the new range only.
-    await call('set_source', { account: 'acct', kind: 'mail', historyDays: 365 }, owner({ accounts }));
+    await call('set_source', { sourceAccount: 'acct', kind: 'mail', historyDays: 365 }, owner({ accounts }));
     expect(app().accounts.get('acct', 'mail')!.historyDays).toBe(365);
     expect((await call('list_sources', {}, owner({ accounts }))).sources.find((source: { key: string }) => source.key === 'account:acct').coverage.partial).toBe(true);
   });
@@ -210,7 +210,7 @@ describe('bounded Gmail sync', () => {
     await call('save_preparation', { opportunityId: record.id, interviewId: interview.id, expectedRevision: prep.revision, requirements: [], examples: [{ id: 'e', text: 'My example.', requirementIds: [] }], questions: [], notes: 'Prep notes.' }, owner());
     const scope = await call('create_scope', { actorId: 'chat:c-1', sources: ['manual', 'account:acct'], operations: ['read'] }, owner({ accounts }));
 
-    await call('set_source', { account: 'acct', kind: 'mail', paused: true }, owner({ accounts }));
+    await call('set_source', { sourceAccount: 'acct', kind: 'mail', paused: true }, owner({ accounts }));
     const before = provider.calls.filter((item) => item.account === 'acct').length;
     await drain(accounts, provider.capability);
     expect(provider.calls.filter((item) => item.account === 'acct').length).toBe(before);
@@ -335,18 +335,18 @@ describe('source setup', () => {
       calendar: { cal: { calendars: [{ id: 'primary', summary: 'you@example.test', primary: true }, { id: 'interviews', summary: 'Interviews' }], pages: [[]] } },
     });
     const accounts = [mailAccount('acct'), calendarAccount('cal')];
-    const preview = await call('preview_source', { account: 'acct', historyDays: 90 }, owner({ accounts, capability: provider.capability }));
+    const preview = await call('preview_source', { sourceAccount: 'acct', historyDays: 90 }, owner({ accounts, capability: provider.capability }));
     expect(preview.matches).toEqual([
       { subject: 'Thank you for applying to Lumen', from: 'Lumen Recruiting', date: '2026-10-12', label: 'Application received' },
       { subject: 'Your offer from Cedar', from: 'Priya', date: '2026-10-14', label: 'Offer' },
     ]);
     expect(provider.calls.some((item) => item.name === 'gmail.read_message')).toBe(false);
     expect(app().db.prepare('SELECT COUNT(*) AS count FROM correspondence').get()).toMatchObject({ count: 0 });
-    await expect(call('preview_source', { account: 'not-granted', historyDays: 90 }, owner({ accounts, capability: provider.capability }))).rejects.toThrow(/Ri doesn't let this app read that account/);
+    await expect(call('preview_source', { sourceAccount: 'not-granted', historyDays: 90 }, owner({ accounts, capability: provider.capability }))).rejects.toThrow(/Ri doesn't let this app read that account/);
 
-    const calendars = await call('list_source_calendars', { account: 'cal' }, owner({ accounts, capability: provider.capability }));
+    const calendars = await call('list_source_calendars', { sourceAccount: 'cal' }, owner({ accounts, capability: provider.capability }));
     expect(calendars.calendars.map((item: { id: string }) => item.id)).toEqual(['primary', 'interviews']);
-    const saved = await call('set_source', { account: 'cal', kind: 'calendar', calendars: ['interviews'] }, owner({ accounts }));
+    const saved = await call('set_source', { sourceAccount: 'cal', kind: 'calendar', calendars: ['interviews'] }, owner({ accounts }));
     expect(saved.source).toMatchObject({ kind: 'calendar', calendars: ['interviews'], granted: true });
     await drain(accounts, provider.capability);
     const synced = provider.calls.filter((item) => item.name === 'google_calendar.sync_events').map((item) => item.input.calendarId);

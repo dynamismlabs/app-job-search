@@ -121,8 +121,8 @@ describe('with the core\'s fixture source in Ri\'s place', () => {
     await call('save_opportunity', { company: 'Northstar', role: 'Product designer' }, owner({ hub }));
     await call('save_opportunity', { company: 'Cedar', role: 'Design lead' }, owner({ hub }));
     // The person adds the one Gmail and calendar account Ri lends the app.
-    await call('set_source', { account: 'default', kind: 'mail', historyDays: 30 }, owner({ hub }));
-    await call('set_source', { account: 'default', kind: 'calendar' }, owner({ hub }));
+    await call('set_source', { sourceAccount: 'default', kind: 'mail', historyDays: 30 }, owner({ hub }));
+    await call('set_source', { sourceAccount: 'default', kind: 'calendar' }, owner({ hub }));
 
     for (let minute = 0; minute < 30; minute += 5) await runDueJobs(application, platform(), { now: at(`2026-11-12T12:${String(minute).padStart(2, '0')}:00.000Z`), runner: 'test' });
     bindState(platform());
@@ -147,7 +147,7 @@ describe('with the core\'s fixture source in Ri\'s place', () => {
     await setup();
     let hub = fixtureSource(fixtures);
     platform().connectors = hub;
-    await call('set_source', { account: 'default', kind: 'mail', historyDays: 30 }, owner({ hub }));
+    await call('set_source', { sourceAccount: 'default', kind: 'mail', historyDays: 30 }, owner({ hub }));
     hub = fixtureSource({ ...fixtures, unavailable: true });
     platform().connectors = hub;
     await runDueJobs(application, platform(), { now: at('2026-11-12T12:00:00.000Z'), runner: 'test' });
