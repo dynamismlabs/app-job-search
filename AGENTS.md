@@ -1,10 +1,11 @@
 # Maintaining Job Search
 
-Job Search is an App Builder app: core 0.2.0 (vendor/app-builder-core-0.2.0.tgz), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
+Job Search is an App Builder app: core 0.2.2 (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
 
 ## Commands
 
-- `pnpm typecheck`, `pnpm test` (vitest) and `pnpm build` before handing off.
+- `pnpm typecheck`, `pnpm test` (vitest) and `pnpm build` before handing off. After `pnpm build`, `pnpm test:host` runs the view in the kit's strict MCP Apps test host (`test/host/browser-host.ts`, copied from the kit) and stops everything it starts.
+- `pnpm exec app-builder upgrade` moves the app onto a newer kit core through the safe-change checks.
 - `pnpm dev` with a disposable `APP_DATA_DIR`, and `APP_CONNECTORS=fixtures` for the fictional hub.
 - `pnpm exec app-builder serve --install` and `pnpm exec app-builder change` to run and change the person's service. Never run the app from this folder against the person's data, and never start a second server on its data directory.
 
@@ -24,7 +25,11 @@ Job Search is an App Builder app: core 0.2.0 (vendor/app-builder-core-0.2.0.tgz)
 - **Sources** (what a connection can be limited to): `manual` (saved jobs, interviews and preparation), `materials`, and `account:<account>` for each account added in Sources. Every read filters by the caller's sources before assembling results, including counts, sort keys, the projected stage and suggestions.
 - **Jobs**: `sync_sources` every five minutes runs bounded sync and enrichment steps for accounts that update automatically. `follow_up_tasks` every five minutes asks Ri again for follow-up tasks waiting for approval.
 - **Connectors**: mail and calendar reads through Ri's hub. The app uses Gmail's and Calendar's own tools by name when Ri lends them (history sync, full messages, sync tokens) and the core's mail and calendar adapters otherwise. Ri's services: `ri__ai_text`, `ri__extract_text`, `ri__create_task`, `ri__get_task`. Account `default` is the one account Ri allows, called without an `account` argument.
-- **Context**: the screens publish the selected record's id and title with the core's bounded selection.
+- **Context**: the screens report the section, its path and filters, and the selected records (one, or several when comparing) with the core's bounded context (`context()` in `src/view/kit/app.tsx`).
+- **View-only actions** (`viewOnly: true`, MCP Apps' `visibility: ["app"]`): the person's own decisions only, such as review decisions, deleting, importing, source setup and export. They still check the caller's access.
+- **Records**: `open_job_search` opens `/opportunities/<id>`, `/interviews/<id>`, `/materials/<id>` or a section, and the host's @ menu finds and reads records (`src/server/mentions.ts`), under the connection's access.
+- **Leaving the frame**: the screens use the core's host calls through the bridge: drafts in the chat (Ask Ri), links, saving files and Open in browser. Each degrades where a host can't.
+- **The place** is the router's address only (`src/view/location.ts`). Don't keep a second copy of it in state.
 - **Hosting**: the Node service only. `src/worker.ts` is a stub.
 
 ## Invariants
