@@ -2,7 +2,7 @@
  * Durable building blocks for the query layer, carried over from Ri's app kit:
  * transactions, list cursors, data scopes, the bounded step queue, settings,
  * evidence blobs and error redaction. Everything here is synchronous SQLite
- * work on the app's own handle to the installation database (db.ts), inside
+ * work on the core's connection to the installation database (db.ts), inside
  * the caller's transaction. Tables come from the app's migrations (schema.ts).
  * Nothing here starts a timer or a loop: the core's job runner drives steps.
  */
@@ -10,15 +10,15 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod/v3";
 import { AppError } from "./contract.js";
 
-/** The subset of a synchronous SQLite handle these helpers use (db.ts adapts better-sqlite3). */
+/** The synchronous SQLite handle these helpers use: the core's connection, through its transaction() (db.ts). */
 export interface SqlDatabase {
-  exec(sql: string): void;
   prepare(sql: string): {
     run(...params: SqlValue[]): { changes: number | bigint; lastInsertRowid: number | bigint };
     get(...params: SqlValue[]): Record<string, unknown> | undefined;
     all(...params: SqlValue[]): Record<string, unknown>[];
   };
-  readonly isTransaction: boolean;
+  /** Run `work` as one transaction, or inside the one already open. */
+  transaction<T>(work: () => T): T;
 }
 export type SqlValue = string | number | bigint | null | Uint8Array;
 
@@ -28,19 +28,13 @@ export function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-/** Run `work` in one immediate transaction, or join the caller's. `work` must not await. */
+/**
+ * Run `work` in one immediate transaction, or join the caller's, with no savepoint. A thrown error
+ * rolls back everything the transaction wrote. `work` must not await: the core refuses work that
+ * returns a promise and rolls it back.
+ */
 export function transaction<T>(db: SqlDatabase, work: () => T): T {
-  if (db.isTransaction) return work();
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    const result = work();
-    if (result instanceof Promise) throw new Error("A transaction must not wait on anything.");
-    db.exec("COMMIT");
-    return result;
-  } catch (error) {
-    if (db.isTransaction) db.exec("ROLLBACK");
-    throw error;
-  }
+  return db.transaction(work);
 }
 
 // ─── Lists ───────────────────────────────────────────────────────────────────

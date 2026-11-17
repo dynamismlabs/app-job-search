@@ -1,8 +1,9 @@
 /**
  * The app's storage for one installation: the query layer's synchronous
- * handle on the installation database (lib/db.ts), with the stores built on
- * it. Every action and job run binds it from the core's platform first
- * (`bindState`), so the query layer keeps calling `app()` as it did in Ri.
+ * handle on the core's connection to the installation database (lib/db.ts),
+ * with the stores built on it. Every action and job run binds it from the
+ * core's platform first (`bindState`), so the query layer keeps calling
+ * `app()` as it did in Ri.
  * One process serves one installation, so there is one state at a time.
  */
 import { z } from 'zod/v3';
@@ -53,7 +54,7 @@ function openState(db: SqlDatabase): AppState {
 }
 
 /** Bind the state for the platform a request or job run uses. */
-export function bindState(platform: Pick<Platform, 'driver'>): AppState {
+export function bindState(platform: Platform): AppState {
   const db = databaseFor(platform);
   let state = states.get(db);
   if (!state) {

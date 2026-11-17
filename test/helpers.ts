@@ -26,7 +26,6 @@ import { actionContract, createActionRouter, type ConnectorSource, type Context,
 import { openNodePlatform } from '@app-builder/core/node';
 import { application } from '../src/app.js';
 import { AppError } from '../src/lib/contract.js';
-import { registerDatabase } from '../src/lib/db.js';
 import { runHandler } from '../src/lib/action.js';
 import { app, bindState, hubTools, rememberHubTools, setClock, DEFAULT_ACCOUNT } from '../src/server/state.js';
 import { runStep, scheduledSources } from '../src/server/sync.js';
@@ -62,7 +61,6 @@ export async function setup(options: { now?: string } = {}) {
     setClock(() => new Date(fixed));
   }
   opened = await openNodePlatform(application, { dataDir: path.join(dir, 'data'), localOwner: true, baseURL: 'http://127.0.0.1:4310' });
-  registerDatabase(opened.platform.driver, opened.connection);
   bindState(opened.platform);
   return { dir, dataDir: path.join(dir, 'data'), platform: opened.platform };
 }

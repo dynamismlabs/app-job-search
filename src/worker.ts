@@ -1,9 +1,10 @@
 /**
  * Job Search runs as the person's own Node service only (`serve --install`).
- * Its rules commit read-then-write transactions on a synchronous SQLite
- * handle (src/lib/db.ts), which Cloudflare D1 can't offer, so there is no
- * Worker build. The kit's build still compiles this entry, so it answers
- * plainly instead. See docs/parity.md, "Hosting".
+ * Its rules commit read-then-write transactions with the core's
+ * transaction() (src/lib/db.ts), which Cloudflare D1 can't run yet, so the
+ * app declares `platforms: ["node"]` and `deploy cloudflare` refuses it. The
+ * kit's build still compiles this entry, so it answers plainly instead. See
+ * docs/parity.md, "Running, hosting and data".
  */
 export default {
   fetch() {

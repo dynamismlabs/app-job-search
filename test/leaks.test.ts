@@ -188,7 +188,7 @@ describe('contacts and domains learned from an account are shown only to readers
     const provider = fakeProvider({ mailbox: { [WORK]: { emailAddress: 'you@work.example.test', pages: [[]], messages: workMail } } });
     const drain = async () => {
       for (let index = 0; index < 12; index++) {
-        app().db.exec("UPDATE app_jobs SET next_eligible_at = '2000-01-01T00:00:00.000Z' WHERE state = 'pending'");
+        app().db.prepare("UPDATE app_jobs SET next_eligible_at = '2000-01-01T00:00:00.000Z' WHERE state = 'pending'").run();
         if ((await call('run_background_step', {}, job([mailAccount(WORK)], { capability: provider.capability }))).ran === null) return;
       }
     };

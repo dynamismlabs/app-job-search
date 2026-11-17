@@ -4,4 +4,6 @@ export const appConfig: AppConfig = {
   name: "Job Search",
   description: "Opportunities, interviews, correspondence and versioned materials together.",
   port: 4561,
+  // Its rules commit with transaction(), which Cloudflare D1 can't run yet.
+  platforms: ["node"],
 };

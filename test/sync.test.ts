@@ -25,7 +25,7 @@ const drain = async (accounts: ReturnType<typeof mailAccount>[], capability: (na
   throw new Error('The schedule never settled');
 };
 /** Time passes: idle jobs become due again, as at the next scheduled run. */
-const later = () => app().db.exec("UPDATE app_jobs SET next_eligible_at = '2000-01-01T00:00:00.000Z' WHERE state = 'pending'");
+const later = () => app().db.prepare("UPDATE app_jobs SET next_eligible_at = '2000-01-01T00:00:00.000Z' WHERE state = 'pending'").run();
 const syncStep = (accounts: ReturnType<typeof mailAccount>[], capability: (name: string, input: unknown, target?: { binding?: string; account?: string }) => Promise<unknown>) => call('sync_step', {}, job(accounts, { capability }));
 const save = async (fields: Record<string, unknown>) => (await call('save_opportunity', fields, owner())).record as { id: string; revision: number };
 const detail = (id: string) => call('get_opportunity', { id }, owner());
