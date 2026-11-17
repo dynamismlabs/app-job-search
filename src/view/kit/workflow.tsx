@@ -23,12 +23,17 @@ export interface AskRiButtonProps {
   size?: ButtonSize;
   className?: string;
 }
-/** Stages a question in Ri's native chat. The person edits and sends it. */
+/**
+ * Puts a question in the chat for the person to edit and send: a draft in a
+ * host that drafts (Ri), the question to copy in one that can't. In the
+ * browser there's no chat, so nothing shows.
+ */
 export function AskRiButton({ prompt, children = "Ask Ri", variant = "secondary", size, className }: AskRiButtonProps) {
   const app = useOptionalRiApp();
   const announce = useAnnounce();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  if (app && !app.embedded) return null;
   return (
     <span className="ri-ask">
       <Button
@@ -45,8 +50,7 @@ export function AskRiButton({ prompt, children = "Ask Ri", variant = "secondary"
           setBusy(true);
           setError(null);
           try {
-            await app.ask(prompt);
-            announce("Question added to Ri chat. Review it, then send.", { visual: false });
+            if (await app.ask(prompt)) announce("The question is in the chat. Review it, then send.", { visual: false });
           } catch (failure) {
             setError(errorMessage(failure, "Ri chat could not open"));
           } finally {

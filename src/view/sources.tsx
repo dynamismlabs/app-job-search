@@ -159,7 +159,8 @@ function Accounts() {
   const step = useMutation<Record<string, unknown>, StepSummary>('continue_import');
   const remove = useMutation<Record<string, unknown>, unknown>('delete_source_data');
   const removeImport = useMutation<Record<string, unknown>, { message: string }>('delete_import');
-  const exporter = useMutation<Record<string, unknown>, { fileName: string; mimeType: string; text: string; opportunities: number; materials: number }>('export_records');
+  // A read, not a write, so it's called directly: it takes no operation ID.
+  const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   if (sources.error && !sources.data) return <ErrorState message={sources.error} onRetry={sources.reload} />;
   if (!sources.data) return <LoadingState label="Loading sources" rows={2} />;
@@ -216,15 +217,17 @@ function Accounts() {
         <p className="ri-small ri-muted">{all.filter((source) => source.kind === 'collection').map((source) => `${source.label}: ${source.records}`).join(' · ')}</p>
         <p className="ri-small">Download your opportunities, stage history, descriptions, interviews, submissions, preparation and materials as a JSON file. Email bodies are not included.</p>
         <ButtonRow>
-          <Button busy={exporter.pending} busyLabel="Preparing export" onClick={async () => {
+          <Button busy={exporting} busyLabel="Preparing export" onClick={async () => {
             setExportError(null);
+            setExporting(true);
             try {
-              const file = await exporter.run({});
-              exporter.reset();
+              const file = await app.call<{ fileName: string; mimeType: string; text: string; opportunities: number; materials: number }>('export_records', {});
               await app.download({ name: file.fileName, mimeType: file.mimeType, text: file.text });
               announce(`Exported ${file.opportunities} opportunities and ${file.materials} materials`);
             } catch (failure) {
               setExportError(errorText(failure));
+            } finally {
+              setExporting(false);
             }
           }}>Export your records</Button>
         </ButtonRow>

@@ -2,7 +2,8 @@
 /**
  * The cards the show_* tools draw in an assistant's chat: a snapshot of
  * opportunities or of today, each line selectable so the assistant knows
- * which one the person means, and a way into the whole app.
+ * which one the person means, and opening the whole app at that record. The
+ * card's frame adds Open in browser where the host allows it.
  */
 import { useEffect, useInsertionEffect } from 'react';
 import { useAppClient, ViewCard } from '@app-builder/core/react';
@@ -11,6 +12,13 @@ import { StatusLabel } from './kit/feedback.js';
 import { JOB_SEARCH_CSS } from './styles.js';
 import { locationText, nextText, stageText, whenText } from './format.js';
 import type { OpportunitySummary, TodayData } from './types.js';
+
+/** Open the whole app at one record, where the host can show it full screen. */
+function OpenRecord({ path, label }: { path: string; label: string }) {
+  const client = useAppClient();
+  if (!client.view?.canFullscreen) return null;
+  return <button type="button" className="text-button" aria-label={label} onClick={() => void client.openFullscreen(path).catch(() => {})}>Open</button>;
+}
 
 function useCardStyles() {
   useInsertionEffect(() => { installStyles(JOB_SEARCH_CSS); }, []);
@@ -32,6 +40,7 @@ export function OpportunitiesCard({ data }: { data: { title: string; items: Oppo
                 <span className="ri-small ri-muted">{nextText(item.next)}</span>
               </button>
               <StatusLabel tone={item.stage === 'offer' ? 'success' : item.stage === 'closed' ? 'neutral' : 'info'}>{stageText(item.stage, item.outcome)}</StatusLabel>
+              <OpenRecord path={`/opportunities/${item.id}`} label={`Open ${item.company} · ${item.role}`} />
             </li>
           ))}
         </ul>
@@ -58,6 +67,7 @@ export function TodayCard({ data }: { data: TodayData }) {
                 <span>{item.title}</span>
                 <span className="ri-small ri-muted">{whenText(item.startAt, item.zone)}{item.prepared ? ' · Prepared' : ''}</span>
               </button>
+              <OpenRecord path={`/interviews/${item.interviewId}`} label={`Prepare for ${item.title} at ${item.company}`} />
             </li>
           ))}</ul>
         </section>

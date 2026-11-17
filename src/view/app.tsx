@@ -6,7 +6,7 @@
  * reopening return to the same place.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppShell, Button, EmptyState, LoadingState, Notice, SectionPanel, SectionTabs, useLocationMoves, useQuery, useRiApp } from './ui.js';
+import { AppShell, Button, EmptyState, LoadingState, Notice, SectionPanel, SectionTabs, useQuery, useRiApp } from './ui.js';
 import type { Stage } from '../domain/labels.js';
 
 import { TodayView } from './today.js';
@@ -18,6 +18,7 @@ import { SourcesView } from './sources.js';
 import { SaveJobDialog } from './dialogs.js';
 import type { SourceSummary, ViewData } from './types.js';
 import { locationFrom, pathOf, type Location, type Tab } from './location.js';
+import { OpenInBrowser } from '@app-builder/core/react';
 
 
 export function JobSearchApp() {
@@ -31,37 +32,29 @@ export function JobSearchApp() {
 
 function Main({ data }: { data: ViewData }) {
   const app = useRiApp<ViewData>();
-  const [location, setLocationState] = useState<Location>(() => locationFrom(data.path, data.query, data.landing));
+  // The place is the address (the browser's, or the view's own memory router). It's the one
+  // source of truth, so a host's link, Back and Forward and the screens' own moves never race.
+  const location = useMemo(() => locationFrom(data.path, data.query, data.landing), [data.path, data.query, data.landing]);
+  const current = useRef(location);
+  current.current = location;
   const [saveOpen, setSaveOpen] = useState<null | { opportunityId?: string }>(null);
-  const first = useRef(true);
-  // A place reached by Back, Forward or a close button is already where the address is. Don't report it again.
-  const arrived = useRef<string | null>(null);
-  const previous = useRef(location);
-  useEffect(() => {
-    const before = previous.current;
-    previous.current = location;
-    if (first.current) { first.current = false; return; }
-    if (arrived.current === pathOf(location)) { arrived.current = null; return; }
-    const path = pathOf(location);
+  const moveTo = useCallback((next: Location) => {
+    const before = current.current;
+    const path = pathOf(next);
+    if (path === pathOf(before)) return;
+    current.current = next; // several moves in one event build on each other
     // An opportunity selected beside the board is a place Back closes, and closing it goes Back the way the person came.
-    if (!before.selected && location.selected) app.setLocation(path, { push: true });
-    else if (before.selected && !location.selected && pathOf({ ...before, selected: null }) === path) app.goBack(path);
+    if (!before.selected && next.selected) app.setLocation(path, { push: true });
+    else if (before.selected && !next.selected && pathOf({ ...before, selected: null }) === path) app.goBack(path);
     else app.setLocation(path);
-  }, [location, app]);
-  useLocationMoves<ViewData>((moved) => {
-    if (moved.mode !== 'app') return;
-    const next = locationFrom(moved.path, moved.query, moved.landing);
-    arrived.current = pathOf(next);
-    setLocationState(next);
-  });
-  const go = useCallback((patch: Partial<Location> | ((current: Location) => Partial<Location>)) => setLocationState((current) => ({ ...current, ...(typeof patch === 'function' ? patch(current) : patch) })), []);
+  }, [app]);
+  const go = useCallback((patch: Partial<Location> | ((current: Location) => Partial<Location>)) => moveTo({ ...current.current, ...(typeof patch === 'function' ? patch(current.current) : patch) }), [moveTo]);
   /** Close what is open: Back the way the person came, or to the place `patch` names when they arrived here directly. */
   const back = useCallback((patch: Partial<Location>) => {
-    const next = { ...location, ...patch };
-    arrived.current = pathOf(next);
-    setLocationState(next);
+    const next = { ...current.current, ...patch };
+    current.current = next;
     app.goBack(pathOf(next));
-  }, [location, app]);
+  }, [app]);
   const sources = useQuery<{ sources: SourceSummary[] }>('list_sources', {}, { enabled: data.owner });
   const attention = useMemo(() => (sources.data?.sources ?? []).filter((source) => source.granted && (source.status === 'reconnect' || source.status === 'error')), [sources.data]);
   const empty = data.owner && data.setup.opportunities === 0 && data.setup.materials === 0;
@@ -85,7 +78,7 @@ function Main({ data }: { data: ViewData }) {
     body = (
       <EmptyState
         title="Start with a job you are considering"
-        action={<><Button variant="primary" onClick={() => setSaveOpen({})}>Save a job</Button><Button onClick={() => void app.openSources()}>Connect email</Button>{!app.embedded && <Button variant="quiet" onClick={() => void app.call('load_preview', {}, { invocationId: crypto.randomUUID() }).then(() => app.changed('Loaded the fictional preview'))}>Try with fictional records</Button>}</>}
+        action={<><Button variant="primary" onClick={() => setSaveOpen({})}>Save a job</Button><Button onClick={() => void app.openSources()}>Connect email</Button>{<Button variant="quiet" onClick={() => void app.call('load_preview', {}, { invocationId: crypto.randomUUID() }).then(() => app.changed('Loaded the fictional preview'))}>Try with fictional records</Button>}</>}
       >
         <p>Save a job with its description so it stays available even if the posting disappears. Then add your résumé, record applications and prepare for interviews in one place.</p>
         <p className="ri-small" style={{ marginTop: '0.75rem' }}>Connecting email is optional. It reads application, interview and offer mail from the last 90 days by default, and only from the account you choose.</p>
@@ -114,8 +107,9 @@ function Main({ data }: { data: ViewData }) {
     <AppShell
       eyebrow="Job Search"
       title={empty ? 'Keep your next opportunity together' : 'Your next move'}
-      context={data.fictional ? <span className="js-badge-fictional">Fictional preview records. Nothing here is real or sent anywhere.{data.onlyFictional && !app.embedded && <> <Button variant="link" size="sm" onClick={() => void app.call('clear_preview', {}, { invocationId: crypto.randomUUID() }).then(() => app.changed('Removed the fictional preview'))}>Remove them</Button></>}</span> : 'Your opportunities, conversations and preparation in one place.'}
+      context={data.fictional ? <span className="js-badge-fictional">Fictional preview records. Nothing here is real or sent anywhere.{data.onlyFictional && <> <Button variant="link" size="sm" onClick={() => void app.call('clear_preview', {}, { invocationId: crypto.randomUUID() }).then(() => app.changed('Removed the fictional preview'))}>Remove them</Button></>}</span> : 'Your opportunities, conversations and preparation in one place.'}
       primaryAction={data.owner && !empty ? <Button variant="primary" onClick={() => setSaveOpen({})}>Save a job</Button> : undefined}
+      secondaryActions={app.embedded ? <OpenInBrowser className="ri-button ri-button--quiet" /> : undefined}
       tabs={<SectionTabs label="Job Search sections" panelId="js-panel" value={location.tab} onChange={changeTab} items={tabs} />}
       notice={notice}
     >
