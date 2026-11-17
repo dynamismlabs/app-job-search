@@ -1,4 +1,5 @@
 import { z } from 'zod/v3';
+import { SetupRequired } from '@app-builder/core';
 import { AppError } from '../lib/contract.js';
 import { defineAction } from '../lib/action.js';
 import { accountSource } from '../lib/data.js';
@@ -8,7 +9,7 @@ import { CLASSIFICATIONS, CLASSIFICATION_LABELS } from '../domain/model.js';
 import { DEFAULT_ACCOUNT, requireOwner, type AppInvocation } from '../lib/invocation.js';
 import { accessNow, app, rememberHubTools } from '../server/state.js';
 import { deleteSourceData, listSources, sourceSetup } from '../server/sources.js';
-import { ensureJobs, MAIL_QUERY, refreshHub, runSteps, runStep, scheduledSources } from '../server/sync.js';
+import { ensureJobs, lentAccounts, MAIL_QUERY, refreshHub, runSteps, runStep, scheduledSources } from '../server/sync.js';
 import { exampleStep, stepSummarySchema } from './common.js';
 
 const sourceSummarySchema = z.object({
@@ -22,11 +23,17 @@ const exampleSource = {
   coverage: { from: '2026-09-02T12:00:00.000Z', to: '2026-10-15T12:00:00.000Z', partial: true }, lastSuccessAt: '2026-10-15T12:00:00.000Z', pending: 1, failed: 0, lastError: null, records: 24,
 };
 
-/** Ri refused this account: say what to check, in the app's words. */
+/**
+ * Ri refused this account: say what to check, in the app's words. When Ri
+ * itself says what the person should do (reconnect, more access, choose an
+ * account), its code came with it and its words are kept.
+ */
 async function forAccount<T>(work: () => Promise<T>): Promise<T> {
   try { return await work(); }
   catch (error) {
     const code = (error as AppError)?.code;
+    const cause = (error as { cause?: unknown })?.cause;
+    if (code === 'revoked' && cause instanceof SetupRequired && cause.code) throw error;
     if (code === 'revoked' || code === 'forbidden') throw new AppError('forbidden', `Ri doesn't let this app read that account. Check its address, and allow it on the app's page in Ri (${(error as Error).message})`);
     throw error;
   }
@@ -36,19 +43,20 @@ function ownerOnly(invocation: AppInvocation) {
   requireOwner(invocation, 'Only a connection that can see all of Job Search can manage its sources');
 }
 
-const hubSchema = z.object({ connected: z.boolean(), mail: z.boolean(), calendar: z.boolean(), ai: z.boolean(), tasks: z.boolean(), message: z.string().nullable() }).strict();
+const lentSchema = z.object({ account: z.string(), label: z.string(), mail: z.boolean(), calendar: z.boolean(), added: z.object({ mail: z.boolean(), calendar: z.boolean() }).strict() }).strict();
+const hubSchema = z.object({ connected: z.boolean(), mail: z.boolean(), calendar: z.boolean(), ai: z.boolean(), tasks: z.boolean(), message: z.string().nullable(), accounts: z.array(lentSchema) }).strict();
 
 export const listSourcesAction = defineAction({
   name: 'list_sources',
-  description: 'List this app\'s sources: the two collections the person owns and each account set up from Ri, showing whether Ri allows reading it now, whether it updates automatically, paused, its history range, coverage, last success, pending and failed steps and a redacted last error. Also says what Ri lends this app: mail, calendar, its model and tasks.',
+  description: 'List this app\'s sources: the two collections the person owns and each account set up from Ri, showing whether Ri allows reading it now, whether it updates automatically, paused, its history range, coverage, last success, pending and failed steps and a redacted last error. Also says what Ri lends this app (mail, calendar, its model and tasks) and which accounts, and whether each is set up here.',
   input: z.object({}).strict(),
   output: z.object({ sources: z.array(sourceSummarySchema), hub: hubSchema }).strict(),
   audience: ['user'], effect: 'read', retry: 'read_safe', visibility: 'app',
-  examples: [{ input: {}, output: { sources: [exampleSource], hub: { connected: true, mail: true, calendar: true, ai: true, tasks: true, message: null } } }],
+  examples: [{ input: {}, output: { sources: [exampleSource], hub: { connected: true, mail: true, calendar: true, ai: true, tasks: true, message: null, accounts: [{ account: 'sam.rivera@example.test', label: 'sam.rivera@example.test', mail: true, calendar: true, added: { mail: true, calendar: false } }] } } }],
   handler: async (_input, invocation) => {
     ownerOnly(invocation);
     const hub = await refreshHub(invocation);
-    return { sources: listSources(accessNow()), hub };
+    return { sources: listSources(accessNow()), hub: { ...hub, accounts: hub.connected ? await lentAccounts(invocation) : [] } };
   },
 });
 

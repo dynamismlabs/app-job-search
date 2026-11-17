@@ -19,7 +19,7 @@ import { capabilityError } from '../lib/invocation.js';
 import { classifyMessage, looksJobRelated } from '../domain/classify.js';
 import { CLASSIFICATIONS, type Classification } from '../domain/model.js';
 import { excerpt } from '../domain/text.js';
-import { accessNow, app, bumpRevision, nowAt, rememberHubTools } from './state.js';
+import { accessNow, app, bumpRevision, DEFAULT_ACCOUNT, nowAt, rememberHubTools } from './state.js';
 import { applyClassification, ingestCalendarEvent, ingestMessage, markMessageUnavailable } from './ingest.js';
 import { correspondenceBody } from './correspondence.js';
 import { json, str, type Row } from './util.js';
@@ -321,6 +321,31 @@ export async function refreshHub(invocation: AppInvocation) {
     if (code === 'revoked' || code === 'unsupported' || code === 'forbidden') rememberHubTools(null);
     return { connected: false, mail: false, calendar: false, ai: false, tasks: false, message: error instanceof Error ? error.message : 'Ri could not be reached' };
   }
+}
+
+/** One account Ri lent Job Search, for Sources to offer, and whether it's set up here yet. */
+export interface LentAccount { account: string; label: string; mail: boolean; calendar: boolean; added: { mail: boolean; calendar: boolean } }
+
+/**
+ * The accounts Ri lent this app, as the core's connector client lists them
+ * (Ri's `ri__list_accounts`, or the names in its tools' `account` argument).
+ * An account Ri lends alone has no name and is called without one, as
+ * `default`. Empty when Ri doesn't answer: Sources then offers the address field.
+ */
+export async function lentAccounts(invocation: AppInvocation): Promise<LentAccount[]> {
+  let listed: Awaited<ReturnType<AppInvocation['hubAccounts']>>;
+  try { listed = await invocation.hubAccounts(); }
+  catch { return []; }
+  return listed.flatMap((item) => {
+    const mail = item.tools.includes('gmail__search_messages');
+    const calendar = item.tools.includes('google_calendar__sync_events') || item.tools.includes('google_calendar__list_events');
+    if (!mail && !calendar) return [];
+    const account = item.name ?? DEFAULT_ACCOUNT;
+    return [{
+      account, label: item.name ?? 'The account Ri lends', mail, calendar,
+      added: { mail: !!app().accounts.get(account, 'mail'), calendar: !!app().accounts.get(account, 'calendar') },
+    }];
+  });
 }
 
 /** The accounts the schedule updates: set up in Sources, allowed by Ri now, and automatic. */

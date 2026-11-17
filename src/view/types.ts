@@ -47,7 +47,9 @@ export interface SourceSummary {
 }
 export interface StepSummary { ran: string | null; source: string | null; read: number; skipped: number; removed: number; more: boolean; message: string }
 /** What Ri lends the app now (list_sources). */
-export interface HubState { connected: boolean; mail: boolean; calendar: boolean; ai: boolean; tasks: boolean; message: string | null }
+/** An account Ri lent Job Search, and whether its mail and calendar are set up here. */
+export interface LentAccount { account: string; label: string; mail: boolean; calendar: boolean; added: { mail: boolean; calendar: boolean } }
+export interface HubState { connected: boolean; mail: boolean; calendar: boolean; ai: boolean; tasks: boolean; message: string | null; accounts: LentAccount[] }
 
 export interface WriteResult<T> { status: 'saved'; record: T }
 export interface WriteConflict<T> { status: 'conflict'; current: T; message: string }

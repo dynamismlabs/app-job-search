@@ -6,7 +6,8 @@
  * links), and a host that can do none of that.
  *
  * Run `pnpm build`, then `pnpm test:host`. It serves the built app on a free port
- * with a disposable data directory and the fictional preview, and stops it after.
+ * with a disposable data directory, the fictional preview and the core's fixture
+ * source as Ri's hub, and stops it after.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -20,6 +21,12 @@ const root = path.resolve(import.meta.dirname, "../..");
 if (!fs.existsSync(path.join(root, "dist/mcp.html"))) throw new Error("Build the app first: pnpm build");
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "job-search-host-"));
 process.env.APP_DATA_DIR = dataDir;
+// Ri's hub is the core's fixture source, lending one fictional account by name.
+const hubDir = fs.mkdtempSync(path.join(os.tmpdir(), "job-search-hub-"));
+const hubFixtures = JSON.parse(fs.readFileSync(path.join(root, "fixtures/connectors.json"), "utf8")) as Record<string, unknown>;
+fs.writeFileSync(path.join(hubDir, "connectors.json"), JSON.stringify({ ...hubFixtures, accounts: [{ id: "acc_personal", name: "sam.rivera@example.test", provider: "google", tools: ["gmail__search_messages", "gmail__get_message", "google_calendar__list_events"] }] }));
+process.env.APP_CONNECTORS = "fixtures";
+process.env.APP_CONNECTOR_FIXTURES = path.join(hubDir, "connectors.json");
 const { application } = await import("../../src/app.js");
 // The kit's browser tests wait up to 20 seconds (playwright.config.ts).
 const expect = baseExpect.configure({ timeout: 20000 });
@@ -147,12 +154,25 @@ try {
     expect(items.map((item) => item.uri)).toContain(`app://job-search/opportunities/${northstar.id}`);
   });
 
+  await step("Sources offers the accounts Ri lent, and adds one with a button", async () => {
+    await host.mount("open_job_search", { path: "/sources" });
+    const offered = view.getByRole("list", { name: "Accounts Ri lends that aren't added yet" });
+    await expect(offered.getByRole("listitem")).toHaveCount(2);
+    await expect(view.getByRole("textbox", { name: "Account address" })).toHaveCount(0);
+    await quiet();
+    await offered.getByRole("button", { name: "Add Gmail" }).press("Enter");
+    await expect(offered.getByRole("listitem")).toHaveCount(1);
+    const sources = result<{ sources: { account: string; kind: string }[] }>(await host.appCall("list_sources", {})).sources;
+    expect(sources.map((source) => `${source.account}:${source.kind}`)).toContain("sam.rivera@example.test:mail");
+  });
+
   expect(failures).toEqual([]);
   console.log(`Job Search's view passed ${passed} checks in the strict test host.`);
 } finally {
   await browser.close();
   await running.stop();
   fs.rmSync(dataDir, { recursive: true, force: true });
+  fs.rmSync(hubDir, { recursive: true, force: true });
 }
 
 function hostOf(page: Page) {

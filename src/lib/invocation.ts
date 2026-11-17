@@ -14,7 +14,7 @@
  * - The durable invocation ID is the caller's `operationId`, when it sends one.
  */
 import { randomUUID } from "node:crypto";
-import { ApprovalDenied, ApprovalPending, SetupRequired, SourceUnavailable, connectors, type Context } from "@app-builder/core";
+import { ApprovalDenied, ApprovalPending, ConnectorError, SetupRequired, SourceUnavailable, connectors, type Context } from "@app-builder/core";
 import { AppError } from "./contract.js";
 import { scopeFor, type AccessScope } from "./data.js";
 
@@ -50,9 +50,14 @@ export interface AppInvocation {
   capability(name: string, input: unknown, target?: CapabilityTarget): Promise<unknown>;
   /** The hub's tool names, read once per invocation. */
   hubTools(): Promise<Set<string>>;
+  /** The accounts Ri lent this app, as the core's connector client lists them. */
+  hubAccounts(): Promise<ConnectorAccount[]>;
   /** Close the hub connection this invocation opened, if any. */
   close(): Promise<void>;
 }
+
+/** One account Ri lent this app, as the connector client lists it. The core doesn't export the type by name. */
+export type ConnectorAccount = Awaited<ReturnType<ReturnType<typeof connectors>["accounts"]>>[number];
 
 /** The default account: the one account the person allowed in Ri, called without an `account` argument. */
 export const DEFAULT_ACCOUNT = "default";
@@ -64,6 +69,7 @@ export function hubTool(name: string) {
 }
 
 const NOT_FOUND = /not.?found|\b404\b|\b410\b|\bgone\b|expired|no longer (exists|available)|invalid (sync|history|page) ?token/i;
+/** Ri's answers that need the person to reconnect or choose in Ri. The core throws them as SetupRequired with this code. */
 const NEEDS_CONNECTING = new Set(["authorization_required", "additional_permission_required", "choose_connection_method", "choose_account"]);
 
 /** Map the connector client's failures to the query layer's error codes. */
@@ -73,12 +79,15 @@ export function capabilityError(error: unknown): unknown {
   if (error instanceof ApprovalDenied) return Object.assign(new AppError("approval_denied", "You declined this in Ri"), { cause: error });
   if (error instanceof SourceUnavailable) return Object.assign(new AppError("busy", error.message), { cause: error });
   if (error instanceof SetupRequired) {
-    const code = /hasn't been allowed|no longer allowed|doesn't allow/i.test(error.message) ? "forbidden" : "revoked";
+    // The core's own refusals (a tool Ri hasn't lent) carry no code and say so in words it writes.
+    const code = error.code && NEEDS_CONNECTING.has(error.code) ? "revoked"
+      : /hasn't been allowed|no longer allowed|doesn't allow/i.test(error.message) ? "forbidden" : "revoked";
     return Object.assign(new AppError(code, error.message), { cause: error });
   }
+  if (error instanceof ConnectorError && error.code === "not_found") return Object.assign(new AppError("not_found", error.message), { cause: error });
   const message = error instanceof Error ? error.message : String(error);
-  // The connector client keeps only the hub's message, not its error code, so a provider's
-  // "not found" (an expired Gmail history checkpoint, a deleted message) is read from the text.
+  // Until Ri sends a provider's 404 or 410 as `not_found` (Ri #7), it arrives as `provider_error`,
+  // so an expired Gmail history checkpoint or a deleted message is still read from the text.
   if (NOT_FOUND.test(message)) return Object.assign(new AppError("not_found", message), { cause: error });
   return error;
 }
@@ -107,14 +116,16 @@ export function hubCapability(ctx: Context | null) {
       }
       const account = typeof target === "object" ? target.account : undefined;
       const args = { ...(input as Record<string, unknown> ?? {}), ...(account && account !== DEFAULT_ACCOUNT ? { account } : {}) };
-      let result: unknown;
-      try { result = await client!.call(tool, args); }
+      // Ri's reconnect answers come back as SetupRequired, with Ri's code.
+      try { return await client!.call(tool, args); }
       catch (error) { throw capabilityError(error); }
-      const status = result && typeof result === "object" ? (result as { status?: unknown }).status : undefined;
-      // Ri answers some setup states as ordinary results, which the connector client passes through.
-      if (typeof status === "string" && NEEDS_CONNECTING.has(status))
-        throw new AppError("revoked", String((result as { message?: unknown }).message ?? "Reconnect this account in Ri."));
-      return result;
+    },
+    /** The accounts Ri lent this app, each with the tools it backs. */
+    async accounts(): Promise<ConnectorAccount[]> {
+      if (!ctx) throw new AppError("unsupported", "No hub is available here");
+      client ??= connectors(ctx);
+      try { return await client.accounts(); }
+      catch (error) { throw capabilityError(error); }
     },
     async close() { await client?.close(); },
   };
@@ -140,6 +151,7 @@ export function invocationFor(ctx: Context, options: { operationId?: string; acc
     context: ctx,
     capability: (name, input, target) => hub.call(name, input, target),
     hubTools: () => hub.tools(),
+    hubAccounts: () => hub.accounts(),
     close: () => hub.close(),
   };
 }

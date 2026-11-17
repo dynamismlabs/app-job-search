@@ -212,6 +212,49 @@ describe('with the core\'s fixture source in Ri\'s place', () => {
     expect(listed.items[0].task).toMatchObject({ available: true, status: 'todo' });
   });
 
+  it('Ri\'s error codes reach the app: a deleted Ri task by its code, and a reconnect answer as a setup state', async () => {
+    await setup();
+    const taskId = '0192f0aa-0000-7000-8000-00000000e002';
+    let hub = fixtureSource({ ...fixtures, tools: { ...fixtures.tools, ri__create_task: { result: { id: taskId, title: 'Follow up with Lumen' } } } });
+    platform().connectors = hub;
+    const record = (await call('save_opportunity', { company: 'Lumen', role: 'Staff designer' }, owner({ hub }))).record;
+    await call('create_follow_up', { subject: { type: 'opportunity', id: record.id }, title: 'Follow up with Lumen', operationId: crypto.randomUUID() }, owner({ hub }));
+    // Ri answers not_found with a message that doesn't say so: the app reads the code.
+    hub = fixtureSource({ ...fixtures, tools: { ...fixtures.tools, ri__get_task: { error: { code: 'not_found', message: 'ri__get_task failed.' } } } });
+    platform().connectors = hub;
+    const listed = await call('list_follow_ups', { opportunityId: record.id }, owner({ hub }));
+    expect(listed.items[0].task).toMatchObject({ available: false, reason: 'This Ri task was deleted' });
+    // Ri asks the person to reconnect Google as an ordinary answer. The core makes it a setup state, with Ri's code.
+    hub = fixtureSource({ ...fixtures, tools: { ...fixtures.tools, google_calendar__list_calendars: { result: { status: 'authorization_required', provider: 'google' } } } });
+    platform().connectors = hub;
+    await call('set_source', { sourceAccount: 'default', kind: 'calendar' }, owner({ hub }));
+    await expect(call('list_source_calendars', { sourceAccount: 'default' }, owner({ hub }))).rejects.toMatchObject({ code: 'revoked', message: expect.stringMatching(/Reconnect your Google account in Ri/) });
+  });
+
+  it('Sources lists the accounts Ri lent, and adding one marks it added', async () => {
+    await setup();
+    const accounts = [
+      { id: 'acc_personal', name: 'sam.rivera@example.test', provider: 'google', tools: ['gmail__search_messages', 'gmail__get_message', 'google_calendar__list_events'] },
+      { id: 'acc_work', name: 'sam@work.example', provider: 'google', tools: ['google_calendar__list_events'] },
+    ];
+    const hub = fixtureSource({ ...fixtures, accounts });
+    platform().connectors = hub;
+    let sources = await call('list_sources', {}, owner({ hub }));
+    expect(sources.hub.accounts).toEqual([
+      { account: 'sam.rivera@example.test', label: 'sam.rivera@example.test', mail: true, calendar: true, added: { mail: false, calendar: false } },
+      { account: 'sam@work.example', label: 'sam@work.example', mail: false, calendar: true, added: { mail: false, calendar: false } },
+    ]);
+    await call('set_source', { sourceAccount: 'sam.rivera@example.test', kind: 'mail', historyDays: 30 }, owner({ hub }));
+    sources = await call('list_sources', {}, owner({ hub }));
+    expect(sources.hub.accounts[0].added).toEqual({ mail: true, calendar: false });
+    expect(sources.sources.map((source: { account?: string; kind: string }) => `${source.account}:${source.kind}`)).toContain('sam.rivera@example.test:mail');
+    // A hub without the account list: the names come from the tools, and one account lent alone has none.
+    const plain = fixtureSource(fixtures);
+    platform().connectors = plain;
+    sources = await call('list_sources', {}, owner({ hub: plain }));
+    expect(sources.hub.accounts).toEqual([{ account: 'default', label: 'The account Ri lends', mail: true, calendar: true, added: { mail: false, calendar: false } }]);
+  });
+
   it('a follow-up the person declines in Ri is left failed, saying so, and the job moves on', async () => {
     await setup();
     let hub = fixtureSource({ ...fixtures, tools: { ...fixtures.tools, ri__create_task: { approval: 'denied' } } });

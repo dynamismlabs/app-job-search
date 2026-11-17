@@ -238,9 +238,10 @@ function Accounts() {
 }
 
 /**
- * What Ri lends Job Search, and the accounts read through it. Ri doesn't tell
- * the app which accounts it granted, so the person adds each one here: the one
- * account Ri allows needs no address, and with several, the address picks it.
+ * What Ri lends Job Search, and the accounts read through it. Ri lists the
+ * accounts it lent, and the person adds each one here with a button. When Ri
+ * lists none (an older Ri, or it can't be reached), the person types the
+ * address instead: the one account Ri allows needs none.
  */
 function HubPanel({ hub, accounts, onSaved }: { hub: HubState; accounts: SourceSummary[]; onSaved: () => void }) {
   const app = useRiApp();
@@ -251,6 +252,18 @@ function HubPanel({ hub, accounts, onSaved }: { hub: HubState; accounts: SourceS
   const [automatic, setAutomatic] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lent = [hub.mail && 'Gmail', hub.calendar && 'Google Calendar', hub.ai && 'its model', hub.tasks && 'tasks'].filter(Boolean) as string[];
+  const service = (value: 'mail' | 'calendar') => value === 'mail' ? 'Gmail' : 'Google Calendar';
+  const offered = hub.accounts.flatMap((account) => (['mail', 'calendar'] as const).filter((value) => account[value] && !account.added[value]).map((value) => ({ account, kind: value })));
+  const [adding, setAdding] = useState<string | null>(null);
+  const add = async (sourceAccount: string, value: 'mail' | 'calendar') => {
+    setError(null);
+    try {
+      const result = await save.run({ sourceAccount, kind: value, automatic });
+      save.reset(); setAddress('');
+      announce(`${result.source.label} added`);
+      onSaved();
+    } catch (failure) { setError(errorText(failure)); }
+  };
   return (
     <section className="js-panel" aria-labelledby="js-hub-title">
       <div className="ri-section-heading">
@@ -269,22 +282,36 @@ function HubPanel({ hub, accounts, onSaved }: { hub: HubState; accounts: SourceS
           ))}
         </div>
       )}
-      {hub.connected && (
+      {hub.connected && hub.accounts.length > 0 && (
+        <div className="ri-stack ri-stack--tight">
+          <h3 className="ri-h3">Add an account</h3>
+          {offered.length === 0
+            ? <p className="ri-small">Every account Ri lends Job Search is added. Lend another on Job Search's page in Ri.</p>
+            : <>
+                <ul className="js-lent ri-stack ri-stack--tight" aria-label="Accounts Ri lends that aren't added yet">
+                  {offered.map(({ account, kind: value }) => (
+                    <li key={`${account.account}:${value}`}>
+                      <ButtonRow align="between">
+                        <span>{account.label} <span className="ri-small">({service(value)})</span></span>
+                        <Button size="sm" busy={adding === `${account.account}:${value}`} onClick={async () => { setAdding(`${account.account}:${value}`); await add(account.account, value); setAdding(null); }}>
+                          {`Add ${service(value)}`}
+                        </Button>
+                      </ButtonRow>
+                    </li>
+                  ))}
+                </ul>
+                <Checkbox label="Update added accounts automatically" checked={automatic} onChange={setAutomatic} />
+              </>}
+        </div>
+      )}
+      {hub.connected && hub.accounts.length === 0 && (
         <div className="ri-stack ri-stack--tight">
           <h3 className="ri-h3">Add an account</h3>
           <Select label="What to read" value={kind} onChange={(value) => setKind(value as 'mail' | 'calendar')} options={[{ value: 'mail', label: 'Gmail' }, { value: 'calendar', label: 'Google Calendar' }]} />
           <TextInput id="js-add-account" label="Account address" hint="Leave empty when Ri allows one account. With several, enter the address as Ri shows it." value={address} onChange={setAddress} />
           <Checkbox label="Update automatically" checked={automatic} onChange={setAutomatic} />
           <ButtonRow>
-            <Button variant="primary" busy={save.pending} onClick={async () => {
-              setError(null);
-              try {
-                const result = await save.run({ sourceAccount: address.trim() || 'default', kind, automatic });
-                save.reset(); setAddress('');
-                announce(`${result.source.label} added`);
-                onSaved();
-              } catch (failure) { setError(errorText(failure)); }
-            }}>Add account</Button>
+            <Button variant="primary" busy={save.pending} onClick={() => add(address.trim() || 'default', kind)}>Add account</Button>
           </ButtonRow>
         </div>
       )}
