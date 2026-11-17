@@ -14,7 +14,7 @@
  * - The durable invocation ID is the caller's `operationId`, when it sends one.
  */
 import { randomUUID } from "node:crypto";
-import { ApprovalDenied, ApprovalPending, ConnectorError, SetupRequired, SourceUnavailable, connectors, type Context } from "@app-builder/core";
+import { ApprovalDenied, ApprovalPending, ConnectorError, SetupRequired, SourceUnavailable, connectors, type ConnectorAccount, type Context } from "@app-builder/core";
 import { AppError } from "./contract.js";
 import { scopeFor, type AccessScope } from "./data.js";
 
@@ -56,9 +56,6 @@ export interface AppInvocation {
   close(): Promise<void>;
 }
 
-/** One account Ri lent this app, as the connector client lists it. The core doesn't export the type by name. */
-export type ConnectorAccount = Awaited<ReturnType<ReturnType<typeof connectors>["accounts"]>>[number];
-
 /** The default account: the one account the person allowed in Ri, called without an `account` argument. */
 export const DEFAULT_ACCOUNT = "default";
 
@@ -68,7 +65,11 @@ export function hubTool(name: string) {
   return `ri__${name}`;
 }
 
-const NOT_FOUND = /not.?found|\b404\b|\b410\b|\bgone\b|expired|no longer (exists|available)|invalid (sync|history|page) ?token/i;
+/**
+ * A provider's 404 or 410 as a hub from before Ri #7 sent it: `provider_error`, saying so only in
+ * the message. Ri #7 and later send `not_found` with the provider's `httpStatus`.
+ */
+const LEGACY_NOT_FOUND = /not.?found|\b404\b|\b410\b|\bgone\b|expired|no longer (exists|available)|invalid (sync|history|page) ?token/i;
 /** Ri's answers that need the person to reconnect or choose in Ri. The core throws them as SetupRequired with this code. */
 const NEEDS_CONNECTING = new Set(["authorization_required", "additional_permission_required", "choose_connection_method", "choose_account"]);
 
@@ -84,12 +85,21 @@ export function capabilityError(error: unknown): unknown {
       : /hasn't been allowed|no longer allowed|doesn't allow/i.test(error.message) ? "forbidden" : "revoked";
     return Object.assign(new AppError(code, error.message), { cause: error });
   }
-  if (error instanceof ConnectorError && error.code === "not_found") return Object.assign(new AppError("not_found", error.message), { cause: error });
-  const message = error instanceof Error ? error.message : String(error);
-  // Until Ri sends a provider's 404 or 410 as `not_found` (Ri #7), it arrives as `provider_error`,
-  // so an expired Gmail history checkpoint or a deleted message is still read from the text.
-  if (NOT_FOUND.test(message)) return Object.assign(new AppError("not_found", message), { cause: error });
+  if (error instanceof ConnectorError) {
+    if (error.code === "not_found") return Object.assign(new AppError("not_found", error.message), { cause: error });
+    // Hubs from before Ri #7 send an expired Gmail history checkpoint or a deleted message as provider_error.
+    if (error.code === "provider_error" && LEGACY_NOT_FOUND.test(error.message)) return Object.assign(new AppError("not_found", error.message), { cause: error });
+  }
   return error;
+}
+
+/**
+ * The provider's own HTTP status behind a not_found, when the hub sent one (Ri #7 and later):
+ * 404 for an item that no longer exists, 410 for one that's gone, such as an expired sync token.
+ */
+export function providerStatus(error: unknown): number | undefined {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  return cause instanceof ConnectorError ? cause.httpStatus : undefined;
 }
 
 /**

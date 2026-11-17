@@ -14,7 +14,7 @@ import {
   type CalendarCheckpoint, type CalendarEvent, type MailHeaders, type MailMessage, type SourceKind,
 } from '../lib/sources.js';
 import { z } from 'zod/v3';
-import { SetupRequired, SourceUnavailable, connectors } from '@app-builder/core';
+import { SetupRequired, SourceUnavailable, connectors, type ConnectorAccount } from '@app-builder/core';
 import { capabilityError } from '../lib/invocation.js';
 import { classifyMessage, looksJobRelated } from '../domain/classify.js';
 import { CLASSIFICATIONS, type Classification } from '../domain/model.js';
@@ -333,7 +333,7 @@ export interface LentAccount { account: string; label: string; mail: boolean; ca
  * `default`. Empty when Ri doesn't answer: Sources then offers the address field.
  */
 export async function lentAccounts(invocation: AppInvocation): Promise<LentAccount[]> {
-  let listed: Awaited<ReturnType<AppInvocation['hubAccounts']>>;
+  let listed: ConnectorAccount[];
   try { listed = await invocation.hubAccounts(); }
   catch { return []; }
   return listed.flatMap((item) => {

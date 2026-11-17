@@ -13,7 +13,7 @@
  */
 import { z } from "zod/v3";
 import { AppError } from "./contract.js";
-import type { AppInvocation } from "./invocation.js";
+import { providerStatus, type AppInvocation } from "./invocation.js";
 import type { MailMessage as CoreMailMessage, CalendarEvent as CoreCalendarEvent } from "@app-builder/core";
 import { nowIso, sha256, transaction, type SqlDatabase } from "./data.js";
 
@@ -595,6 +595,9 @@ export interface CalendarStepResult { checkpoint: CalendarCheckpoint; more: bool
  * One bounded Calendar page. The full scan covers the window, then the sync
  * token returns only changes. A cancelled event is reported, not dropped, so
  * the app can keep its history. An expired token (410) restarts the window.
+ * A 404 means the calendar itself is gone or no longer shared, which a restart
+ * can't fix, so the checkpoint is kept and the step says so. A hub from before
+ * Ri #7 sends no status, so any not_found on a sync token restarts the window.
  * When half the future window has passed, a fresh full scan moves it forward.
  */
 export async function calendarSyncStep(options: {
@@ -618,10 +621,13 @@ export async function calendarSyncStep(options: {
   try {
     page = syncPage.parse(await options.invocation.capability("google_calendar.sync_events", input, { binding: options.binding, account: options.account }));
   } catch (error) {
-    if ((error as AppError)?.code === "not_found" && checkpoint.phase === "incremental") {
+    if ((error as AppError)?.code !== "not_found") throw error;
+    const status = providerStatus(error);
+    if (status === 410 || (status === undefined && checkpoint.phase === "incremental")) {
       const fresh = newCalendarCheckpoint(checkpoint.calendarId, checkpoint.pastDays, checkpoint.futureDays, now());
       return { checkpoint: { ...fresh, resets: checkpoint.resets + 1, lastSuccessAt: checkpoint.lastSuccessAt, timeZone: checkpoint.timeZone }, more: true, events: 0, cancelled: 0 };
     }
+    if (status === 404) throw Object.assign(new AppError("not_found", "Google Calendar can't find one of the calendars chosen for this account. It may have been deleted or unshared. Choose its calendars again in Sources"), { cause: error });
     throw error;
   }
   let cancelled = 0;

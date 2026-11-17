@@ -5,7 +5,7 @@
  * `hubFrom` serves it to the app as the core's connector source, with Ri's
  * tool names and the errors the core's hub client raises.
  */
-import { ApprovalPending, SetupRequired, SourceUnavailable, type ConnectorSource } from '@app-builder/core';
+import { ApprovalPending, ConnectorError, SetupRequired, SourceUnavailable, type ConnectorSource } from '@app-builder/core';
 import { AppError } from '../src/lib/contract.js';
 
 export type Capability = (name: string, input: unknown, target?: { binding?: string; account?: string }) => Promise<unknown> | unknown;
@@ -36,6 +36,12 @@ export function hubFrom(capability: Capability | undefined, accounts: { account:
         if (code === 'busy' || code === 'timeout') throw new SourceUnavailable(message);
         if (code === 'approval_required') throw new ApprovalPending({ id: 'approval', tool: name, description: message });
         if (code === 'unsupported') throw error;
+        if (code === 'not_found') {
+          // Ri #7 and later: `not_found`, with Google's status. Older hubs: `provider_error`, with the status only in the words.
+          const { httpStatus, beforeRi7 } = error as { httpStatus?: number; beforeRi7?: boolean };
+          if (beforeRi7 && httpStatus) throw new ConnectorError(`Google returned ${httpStatus}: ${message}`, 'provider_error', name);
+          throw new ConnectorError(message, 'not_found', name, httpStatus);
+        }
         throw new Error(message);
       }
     },
@@ -99,7 +105,10 @@ export interface CalendarOptions {
   /** Full-scan pages, then incremental pages served one per sync call. */
   pages: unknown[][];
   incremental?: unknown[][];
+  /** The next sync answers 410: the sync token expired. */
   expireTokenOnce?: boolean;
+  /** The next sync answers 404: the calendar was deleted or unshared. */
+  missingOnce?: boolean;
   timeZone?: string;
 }
 
@@ -113,15 +122,19 @@ export interface FakeProvider {
   capability: (name: string, input: unknown, target?: { binding?: string; account?: string }) => Promise<unknown>;
   ai?: (prompt: string) => string;
   tasks: Map<string, { id: string; title: string; status: string; dueAt?: string }>;
+  /** Answer Google's 404s and 410s as a hub from before Ri #7 did. */
+  beforeRi7: boolean;
 }
 
 export function fakeProvider(options: { mailbox?: Record<string, MailboxOptions>; calendar?: Record<string, CalendarOptions>; ai?: (prompt: string) => string } = {}): FakeProvider {
   const provider: FakeProvider = {
-    calls: [], mailbox: options.mailbox ?? {}, calendar: options.calendar ?? {}, revoked: new Set(), failOnce: new Set(), ai: options.ai, tasks: new Map(),
+    calls: [], mailbox: options.mailbox ?? {}, calendar: options.calendar ?? {}, revoked: new Set(), failOnce: new Set(), ai: options.ai, tasks: new Map(), beforeRi7: false,
     async capability(name, rawInput, target) {
       const input = (rawInput ?? {}) as Record<string, unknown>;
       const account = target?.account;
       provider.calls.push({ name, account, input });
+      /** Google's answer for an item that's gone, with its HTTP status. */
+      const google = (httpStatus: 404 | 410, message: string) => Object.assign(new AppError('not_found', message), { httpStatus, beforeRi7: provider.beforeRi7 });
       if (account && provider.revoked.has(account)) throw new AppError('revoked', 'The connection needs to be reconnected');
       if (provider.failOnce.has(name)) { provider.failOnce.delete(name); throw new AppError('busy', 'The provider is busy'); }
       if (name === 'create_task') {
@@ -155,16 +168,16 @@ export function fakeProvider(options: { mailbox?: Record<string, MailboxOptions>
         }
         if (name === 'gmail.get_message') {
           const message = box.messages[String(input.messageId)];
-          if (!message) throw new AppError('not_found', 'Message not found');
+          if (!message) throw google(404, 'Requested entity was not found.');
           return { id: message.id, threadId: message.threadId, labelIds: message.labels ?? ['INBOX'], snippet: message.text.slice(0, 100), headers: { Subject: message.subject, From: message.from, To: message.to ?? 'you@example.test', Date: new Date(message.date).toUTCString() } };
         }
         if (name === 'gmail.read_message') {
           const message = box.messages[String(input.messageId)];
-          if (!message) throw new AppError('not_found', 'Message not found');
+          if (!message) throw google(404, 'Requested entity was not found.');
           return rawMessage(message);
         }
         if (name === 'gmail.list_history') {
-          if (box.expireHistoryOnce) { box.expireHistoryOnce = false; throw new AppError('not_found', 'History expired'); }
+          if (box.expireHistoryOnce) { box.expireHistoryOnce = false; throw google(404, 'Requested entity was not found.'); }
           const pages = box.history ?? [];
           const index = input.pageToken ? Number(String(input.pageToken).slice(1)) : 0;
           const records = pages.shift() ?? [];
@@ -177,8 +190,9 @@ export function fakeProvider(options: { mailbox?: Record<string, MailboxOptions>
         if (!calendar) throw new AppError('forbidden', 'Not granted');
         if (name === 'google_calendar.list_calendars') return { calendars: (calendar.calendars ?? [{ id: 'primary', summary: 'you@example.test', primary: true }]).map((item) => ({ ...item, accessRole: 'owner' })) };
         if (name === 'google_calendar.sync_events') {
+          if (calendar.missingOnce) { calendar.missingOnce = false; throw google(404, 'Not Found'); }
           if (input.syncToken) {
-            if (calendar.expireTokenOnce) { calendar.expireTokenOnce = false; throw new AppError('not_found', 'Sync token expired'); }
+            if (calendar.expireTokenOnce) { calendar.expireTokenOnce = false; throw google(410, 'Sync token is no longer valid, a full sync is required.'); }
             const events = calendar.incremental?.shift() ?? [];
             return { events, nextSyncToken: `sync-${provider.calls.length}`, calendarTimeZone: calendar.timeZone ?? 'America/Denver' };
           }

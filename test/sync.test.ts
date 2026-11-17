@@ -3,10 +3,13 @@
  * Every mailbox, message and event is fictional.
  */
 import { describe, it, expect } from 'vitest';
+import { ConnectorError } from '@app-builder/core';
 import { setup, call, owner, job, mailAccount, calendarAccount } from './helpers.js';
 import { calendarEvent, fakeProvider, type FakeMessage } from './fakes.js';
 import { MAIL_QUERY } from '../src/server/sync.js';
 import { app } from '../src/server/state.js';
+import { capabilityError, providerStatus } from '../src/lib/invocation.js';
+import { AppError } from '../src/lib/contract.js';
 
 const NOW = '2026-10-15T15:00:00Z';
 const msg = (id: string, threadId: string, from: string, subject: string, text: string, date: string, extra: Partial<FakeMessage> = {}): FakeMessage => ({ id, threadId, from, subject, text, date, ...extra });
@@ -267,6 +270,80 @@ describe('bounded Calendar sync', () => {
     await drain(accounts, provider.capability);
     expect((await detail(record.id)).interviews).toHaveLength(2);
     expect((app().accounts.get('cal', 'calendar')!.checkpoint as Record<string, { resets: number }>).primary.resets).toBe(1);
+  });
+});
+
+describe('a provider\'s "not found", from Ri\'s hub before and after Ri #7', () => {
+  it('reads not_found by its code, with Google\'s status, and the words only from an older hub\'s provider_error', () => {
+    const mapped = (error: unknown) => capabilityError(error) as AppError;
+    // Ri\'s own services, and Ri #7 and later for Google: the code, whatever the words.
+    expect(mapped(new ConnectorError('ri__get_task failed.', 'not_found', 'ri__get_task'))).toMatchObject({ code: 'not_found' });
+    const gone = mapped(new ConnectorError('Sync token is no longer valid, a full sync is required.', 'not_found', 'google_calendar__sync_events', 410));
+    expect(gone).toMatchObject({ code: 'not_found' });
+    expect(providerStatus(gone)).toBe(410);
+    expect(providerStatus(mapped(new ConnectorError('Not Found', 'not_found', 'google_calendar__sync_events', 404)))).toBe(404);
+    // A hub from before Ri #7: provider_error, read from the words, with no status.
+    const older = mapped(new ConnectorError('Google returned 404: Requested entity was not found.', 'provider_error', 'gmail__list_history'));
+    expect(older).toMatchObject({ code: 'not_found' });
+    expect(providerStatus(older)).toBeUndefined();
+    // The words alone don't make a not_found under any other code, or without one.
+    const limited = new ConnectorError('Requested entity was not found.', 'rate_limited', 'gmail__get_message');
+    expect(mapped(limited)).toBe(limited);
+    const plain = new Error('Requested entity was not found.');
+    expect(mapped(plain)).toBe(plain);
+    expect(mapped(new ConnectorError('Google returned 500: Backend Error', 'provider_error', 'gmail__get_message'))).toBeInstanceOf(ConnectorError);
+  });
+
+  it('a calendar Google can\'t find (404) keeps its sync token and says so, where an expired token (410) restarts the window', async () => {
+    await setup({ now: NOW });
+    const record = await save({ company: 'Northstar', role: 'Product designer' });
+    const provider = fakeProvider({ calendar: { cal: { pages: [[calendarEvent({ id: 'loop_1', summary: 'Interview loop: Product designer', organizer: 'maya.chen@northstar.example', attendees: [{ email: 'maya.chen@northstar.example' }], start: '2026-10-16T10:00:00-06:00', end: '2026-10-16T11:00:00-06:00' })]] } } });
+    const accounts = [calendarAccount('cal')];
+    await drain(accounts, provider.capability);
+    const checkpoint = () => (app().accounts.get('cal', 'calendar')!.checkpoint as Record<string, { resets: number; phase: string; syncToken: string | null }>).primary;
+    const synced = checkpoint();
+    expect(synced).toMatchObject({ phase: 'incremental', resets: 0 });
+    // 404: restarting can't help, so the checkpoint stays and Sources says why.
+    provider.calendar.cal.missingOnce = true;
+    later();
+    const result = await syncStep(accounts, provider.capability);
+    expect(result.message).toMatch(/can't find one of the calendars/);
+    expect(checkpoint()).toEqual(synced);
+    const source = (await call('list_sources', {}, owner({ accounts }))).sources.find((item: { key: string; kind: string }) => item.key === 'account:cal' && item.kind === 'calendar');
+    expect(source).toMatchObject({ status: 'error', lastError: expect.stringMatching(/Choose its calendars again in Sources/) });
+    // 410: the token expired, so the window restarts once, without second copies.
+    provider.calendar.cal.expireTokenOnce = true;
+    await drain(accounts, provider.capability);
+    expect(checkpoint()).toMatchObject({ phase: 'incremental', resets: 1 });
+    expect((await detail(record.id)).interviews).toHaveLength(1);
+  });
+
+  it('a hub from before Ri #7 still recovers from an expired history, a message deleted mid-page and an expired sync token, read from its words', async () => {
+    await setup({ now: NOW });
+    const record = await save({ company: 'Lumen', role: 'Staff designer' });
+    const ack = msg('a', 'ta', 'Lumen <jobs@lumen.example>', 'Thank you for applying', 'Thank you for applying for the Staff designer role at Lumen.', '2026-10-10T10:00:00Z');
+    const provider = fakeProvider({
+      mailbox: { acct: { emailAddress: 'you@example.test', pages: [['a']], messages: { a: ack } } },
+      calendar: { cal: { pages: [[calendarEvent({ id: 'loop_1', summary: 'Interview loop: Staff designer', organizer: 'maya.chen@lumen.example', attendees: [{ email: 'maya.chen@lumen.example' }], start: '2026-10-16T10:00:00-06:00', end: '2026-10-16T11:00:00-06:00' })]] } },
+    });
+    provider.beforeRi7 = true;
+    const accounts = [mailAccount('acct'), calendarAccount('cal')];
+    await drain(accounts, provider.capability);
+    // A message listed in history but deleted before it was read.
+    provider.mailbox.acct.history = [[{ messagesAdded: [{ message: { id: 'ghost', threadId: 'tg', labelIds: ['INBOX'] } }] }]];
+    const results = await drain(accounts, provider.capability);
+    expect(results.some((item) => item.ran === 'sync_mail' && item.removed === 1)).toBe(true);
+    // An expired history checkpoint, then an expired sync token.
+    provider.mailbox.acct.expireHistoryOnce = true;
+    provider.calendar.cal.expireTokenOnce = true;
+    await drain(accounts, provider.capability);
+    expect(app().accounts.get('acct', 'mail')!.checkpoint).toMatchObject({ rescans: 1 });
+    expect((app().accounts.get('cal', 'calendar')!.checkpoint as Record<string, { resets: number }>).primary.resets).toBe(1);
+    // Every one of those answers was provider_error, and nothing was duplicated.
+    expect((await detail(record.id)).correspondence).toHaveLength(1);
+    expect((await detail(record.id)).interviews).toHaveLength(1);
+    const sources = (await call('list_sources', {}, owner({ accounts }))).sources as { status: string }[];
+    expect(sources.map((item) => item.status)).not.toContain('error');
   });
 });
 
