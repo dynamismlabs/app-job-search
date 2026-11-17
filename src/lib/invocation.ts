@@ -14,7 +14,7 @@
  * - The durable invocation ID is the caller's `operationId`, when it sends one.
  */
 import { randomUUID } from "node:crypto";
-import { ApprovalPending, SetupRequired, SourceUnavailable, connectors, type Context } from "@app-builder/core";
+import { ApprovalDenied, ApprovalPending, SetupRequired, SourceUnavailable, connectors, type Context } from "@app-builder/core";
 import { AppError } from "./contract.js";
 import { scopeFor, type AccessScope } from "./data.js";
 
@@ -70,6 +70,7 @@ const NEEDS_CONNECTING = new Set(["authorization_required", "additional_permissi
 export function capabilityError(error: unknown): unknown {
   if (error instanceof AppError) return error;
   if (error instanceof ApprovalPending) return Object.assign(new AppError("approval_required", "Waiting for your approval in Ri"), { cause: error });
+  if (error instanceof ApprovalDenied) return Object.assign(new AppError("approval_denied", "You declined this in Ri"), { cause: error });
   if (error instanceof SourceUnavailable) return Object.assign(new AppError("busy", error.message), { cause: error });
   if (error instanceof SetupRequired) {
     const code = /hasn't been allowed|no longer allowed|doesn't allow/i.test(error.message) ? "forbidden" : "revoked";

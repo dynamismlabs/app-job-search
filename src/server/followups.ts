@@ -6,8 +6,9 @@
  *
  * Ri asks the person before an app adds a task. Until they approve, the link
  * stays pending with a note, and the follow_up_tasks job retries the identical
- * call; the core's job runner keeps that run waiting and retries every two
- * minutes, inside Ri's five-minute window after approval.
+ * call: the core's job runner keeps that run waiting and tries again every
+ * five minutes, and Ri keeps an approved call open for a day. A task the
+ * person declines in Ri leaves the follow-up failed, saying so.
  */
 import { AppError } from '../lib/contract.js';
 import { allows, newId, redact, transaction, type AccessScope } from '../lib/data.js';
@@ -90,7 +91,8 @@ export async function createLinkedTask(invocation: AppInvocation, link: Row, des
       if (options.wait) throw (error as { cause?: unknown }).cause ?? error;
       return db.prepare('SELECT * FROM follow_up_links WHERE id = ?').get(str(link.id))!;
     }
-    const message = code === 'forbidden' || code === 'unsupported' ? 'Ri tasks are not allowed for this app yet. Allow "Add tasks" on the app\'s page in Ri, then try again' : redact(error);
+    const message = code === 'forbidden' || code === 'unsupported' ? 'Ri tasks are not allowed for this app yet. Allow "Add tasks" on the app\'s page in Ri, then try again'
+      : code === 'approval_denied' ? 'You declined this task in Ri. Create the follow-up again to ask once more' : redact(error);
     db.prepare("UPDATE follow_up_links SET state = 'failed', last_error = ?, updated_at = ? WHERE id = ?").run(message, nowAt(), str(link.id));
     bumpRevision();
     throw new AppError(code === 'forbidden' || code === 'unsupported' ? 'forbidden' : code ?? 'app_failed', message);

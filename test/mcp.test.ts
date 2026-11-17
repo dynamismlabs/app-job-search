@@ -151,11 +151,22 @@ describe('with the core\'s fixture source in Ri\'s place', () => {
     // The person approves in Ri: the identical call now returns the task.
     hub = fixtureSource({ ...fixtures, tools: { ...fixtures.tools, ri__create_task: { result: { id: '0192f0aa-0000-7000-8000-00000000e001', title: 'Follow up with Lumen' } } } });
     platform().connectors = hub;
-    await runDueJobs(application, platform(), { now: at('2026-11-12T12:03:00.000Z'), runner: 'test' });
+    await runDueJobs(application, platform(), { now: at('2026-11-12T12:06:00.000Z'), runner: 'test' });
     bindState(platform());
     const listed = await call('list_follow_ups', { opportunityId: record.id }, owner({ hub }));
     expect(listed.items[0].followUp).toMatchObject({ state: 'created', taskId: '0192f0aa-0000-7000-8000-00000000e001' });
     expect(listed.items[0].task).toMatchObject({ available: true, status: 'todo' });
+  });
+
+  it('a follow-up the person declines in Ri is left failed, saying so, and the job moves on', async () => {
+    await setup();
+    let hub = fixtureSource({ ...fixtures, tools: { ...fixtures.tools, ri__create_task: { approval: 'denied' } } });
+    platform().connectors = hub;
+    const record = (await call('save_opportunity', { company: 'Cedar', role: 'Design lead' }, owner({ hub }))).record;
+    await expect(call('create_follow_up', { subject: { type: 'opportunity', id: record.id }, title: 'Review the offer', operationId: crypto.randomUUID() }, owner({ hub }))).rejects.toThrow(/declined this task in Ri/);
+    const listed = await call('list_follow_ups', { opportunityId: record.id }, owner({ hub }));
+    expect(listed.items[0].followUp).toMatchObject({ state: 'failed', lastError: expect.stringMatching(/declined/) });
+    void hub;
   });
 
   it('a PDF is read through Ri\'s extract_text, and preparation suggestions say when Ri\'s model is unavailable', async () => {

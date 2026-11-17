@@ -61,7 +61,7 @@ export const createWaitingFollowUpsAction = defineAction({
     for (const link of waiting) {
       const result = await createLinkedTask(invocation, link, null, { wait: true }).catch((error) => {
         // A follow-up Ri refuses outright stays failed with its reason; the rest still run.
-        if ((error as AppError)?.code === 'forbidden' || (error as AppError)?.code === 'app_failed') return null;
+        if (['forbidden', 'app_failed', 'approval_denied'].includes((error as AppError)?.code)) return null;
         throw error;
       });
       if (result?.task_id) created++;
