@@ -12,15 +12,17 @@ The findings that need a change in the kit or in Ri are collected at the end.
 
 **November 16 update.** The app moved to App Builder core 0.2.2 (kit `main` at `1713f6a`), which added what the first port found missing in assistants (spec §5, "The full app in every host"): drafting a chat message, opening links, saving files, view-only actions, opening the app at a record, the host's @ menu, a wider selection and Open in browser. Every line that said "browser only" or "can't work" for those reasons now works in hosts, verified in the test host. What's still blocked is listed at the end, each with its reason.
 
+**November 17 update.** The app moved to the core from kit `main` at `ff47742` (kit PR #10, still numbered 0.2.2). It fixed four of the gaps this port found, each shown here by a test: backups keep the triggers that keep submitted materials unchanged, the core drops a deleted account from connections' choices (K8), Ri's error codes and reconnect answers reach the app (K11), and the core lists the accounts Ri lent (K1), so Sources offers them with a button. The app's own workarounds for K8 and K11 are gone, except reading "not found" from Ri's message, which stays until Ri sends a provider's 404 or 410 as `not_found` (Ri #7).
+
 ## How it was checked
 
-- **Tests**: the old app's tests, ported. 102 tests in 9 files, all fictional data. The domain tests run unchanged. The rules, workflow, sync, access, leak and release tests run through the kit's own action router, with Ri's hub played by a hub-shaped fake (`test/fakes.ts`) or by the kit's fixture source (`fixtures/connectors.json`). New tests cover the MCP server (OAuth token required, tool list, read-only connections, a connection limited to some sources, disconnecting in Settings) and the hub through the kit's fixture source (the scheduled import, a duplicate wake-up, an unreachable or revoked hub, a follow-up waiting for approval in Ri, text extraction, the model being unavailable).
+- **Tests**: the old app's tests, ported. 107 tests in 10 files, all fictional data. The domain tests run unchanged. The rules, workflow, sync, access, leak and release tests run through the kit's own action router, with Ri's hub played by a hub-shaped fake (`test/fakes.ts`) or by the kit's fixture source (`fixtures/connectors.json`). New tests cover the MCP server (OAuth token required, tool list, read-only connections, a connection limited to some sources, disconnecting in Settings) and the hub through the kit's fixture source (the scheduled import, a duplicate wake-up, an unreachable or revoked hub, a follow-up waiting for approval in Ri, text extraction, the model being unavailable, Ri's error codes and reconnect answers, the accounts Ri lent, a deleted account leaving a real connection's choice) and backups (a restore keeps the immutability triggers, from this core's backups and from older ones).
 - **By hand**, on disposable data directories:
   - The screens in a browser with the fixture hub: Today, Opportunities (board and the phone-width stage sections, with no sideways scroll), the workspace and Sources.
   - `serve --install --service process` passed every step (install, typecheck, tests, build, rehearsal, switch) and answered on `/api/health`. Both jobs showed in Settings' job list, and Run now finished with "Connect this app to Ri in Settings to use your accounts." The service was then removed with `serve --uninstall`.
   - An MCP client using the MCP SDK's own `auth()` completed OAuth against it: the 401 challenge, discovery, dynamic registration, PKCE, the app's consent screen offering its sources, the token, then tools. A retry with the same operationId returned the same record. A second connection limited to saved jobs and read only saw no materials and was refused a stage change. Refresh worked.
   - The assistant view in the kit's strict MCP Apps host (a scripts-only sandbox whose page may not reach the network): `show_opportunities` and `show_today` drew their cards, choosing a row sent the bounded selection, and `open_job_search` opened the whole app full screen with its sections working, with no network or CSP failures.
-- **In the kit's strict test host, automatically** (`pnpm build`, then `pnpm test:host`, on core 0.2.2): the kit's own `browser-host.ts`, which behaves like Ri where MCP Apps leaves room, runs the built view against the built app on a disposable data directory with the fictional preview. Eight checks, all passing:
+- **In the kit's strict test host, automatically** (`pnpm build`, then `pnpm test:host`, on the core from kit `ff47742`): the kit's own `browser-host.ts`, which behaves like Ri where MCP Apps leaves room, runs the built view against the built app on a disposable data directory with the fictional preview and the core's fixture source as Ri's hub. Nine checks, all passing:
   - the person's decisions are missing from the host model's tool list and refused when the model calls them, while the view's own calls go through
   - a card opens the whole app at one opportunity, and the section, path and selection reach the assistant
   - `open_job_search` opens at a path, and a host link moves the open app, at start and later
@@ -29,9 +31,11 @@ The findings that need a change in the kit or in Ri are collected at the end.
   - the export is saved through the host's download, and a review decision works from the view
   - in a host that can't draft, open links or save files, nothing is sent: the question and the link show to copy, and Open in browser doesn't show
   - the @ menu finds records as the connection
+  - Sources lists the account Ri lent, with no address field, and adds it with a button
   
   One note on the harness: in this headless Chrome, a pointer click doesn't reach a button the sandboxed frame had to scroll to (the frame scrolls, and a dispatched click works), so the check presses Enter on those two buttons.
 - **Installed and checked in Ri** (November 16): installed as this Mac's service with `PORT=4312 APP_HOST=127.0.0.1 APP_URL=http://127.0.0.1:4312 pnpm exec app-builder serve --install HEAD --json` (every step passed. The service is launchd `local.job-search`, with data in `~/.local/share/job-search`), then `change HEAD --json` to 0c3c59b, the `sourceAccount` fix. `pnpm typecheck` and `pnpm test` pass: 9 files, 103 tests, and the new contract test fails on the old code. Then the checks in [Real hosts](#real-hosts) in a disposable Ri at f55cdf96, driven with Playwright in Ri's web app and its source Electron app. The fictional preview, the dummy job and its import were removed afterwards, and the disposable Ri's connection was disconnected in Settings.
+- **Moved onto kit `ff47742`** (November 17) with `pnpm exec app-builder upgrade --core <kit> --json`, run against the installed `local.job-search`. Every step passed: install, typecheck, tests, build, the rehearsal on a copy of the data, the snapshot, and the switch to release `245221f`. The automatic merge was skipped because a file was added to the folder while it ran, so the upgrade branch was merged by hand. The installed service still listens on 4312, from its own `config.env`, though `app.config.ts` now names 4561 for new installs.
 - **Not checked**: a Ri Home in everyday use, ChatGPT and Claude, Ri's real hub with a real Gmail account, and the app connecting to a real hub with OAuth (the kit tests that against its stand-in hub).
 
 ## What it does
@@ -52,7 +56,7 @@ The findings that need a change in the kit or in Ri are collected at the end.
 | AI preparation suggestions in their own labeled list with their evidence | Works differently | Through Ri's `ri__ai_text` on the hub. The person has to allow "Use your model" for Job Search in Ri, and Ri's model service needs Ri's Claude subscription harness. Without it the app says "Extraction unavailable" and preparation works by hand, as before. |
 | Materials: immutable versions, editing v3 saves v4 with a parent link and digest, a submission keeps v3, line by line compare | Works | |
 | Sources: matching review | Works | |
-| Sources: connected accounts | Works differently | Ri's hub doesn't tell an app which accounts it granted, so the person adds each account in Sources (no address needed when Ri allows one). Sources shows what Ri lends the app now (mail, calendar, model, tasks). See finding K1. |
+| Sources: connected accounts | Works | Sources lists the accounts Ri lent Job Search, from the core's account list (Ri's `ri__list_accounts`, or the names in its tools' `account` argument), and adds each with a button. One account Ri lends alone has no name and is added as "The account Ri lends". The address field shows only when Ri lists none. Sources also shows what Ri lends the app (mail, calendar, model, tasks). Tested with the core's fixture source and in the test host. Not checked against a real Ri, which lists accounts since Ri #4. Sources are still keyed by the account's address, not Ri's stable account id, so existing sources keep their keys. |
 | Sources: coverage and sync state per account | Works | |
 | Sources: imported files, with Delete imported data | Works | In the browser and in hosts. Deleting is view-only, so a host that follows MCP Apps keeps it from its model (verified in the test host, and in Ri, where Delete imported data ran from the browser page and `delete_import` is view-only. ChatGPT and Claude pending). |
 | Sources: chats with access | Works differently | Each assistant connection (Ri's own chats, each Ri workspace, Claude, ChatGPT) chooses on the app's consent screen which parts it may see and whether it may change records. Settings lists the connections and disconnects them. Ri's per-chat scopes are gone. |
@@ -79,7 +83,7 @@ All of these run on the same code as before and pass the same tests (`test/rules
 
 | Rule | Mark | Notes |
 | --- | --- | --- |
-| Saving a posting creates a Saved opportunity and an immutable snapshot (SHA-256), a changed description is a new snapshot, preparation keeps citing its own | Works | Database triggers still refuse updates. |
+| Saving a posting creates a Saved opportunity and an immutable snapshot (SHA-256), a changed description is a new snapshot, preparation keeps citing its own | Works | Database triggers still refuse updates, and a restored backup keeps them (`test/backup.test.ts`). |
 | An exact or strong acknowledgment moves Saved to Applied, a weaker match only suggests it | Works | |
 | An invitation to choose times is "Scheduling needed", not an interview | Works | |
 | A confirmed time (calendar event, invitation file, or a time stated with its zone) creates or updates the interview | Works | Invitation files need Gmail's full read tool through the hub. With only the basic mail tool the app still uses calendar events and stated times. |
@@ -116,11 +120,11 @@ All of these run on the same code as before and pass the same tests (`test/rules
 | Stage, next event, last activity and counts computed only from sources the caller may see | Works | |
 | Contacts learned from an account shown only to readers of that account | Works | |
 | AI suggestions shown only to readers of every source the model was given | Works | |
-| A repeated write answered from its saved result only while the caller's sources are unchanged | Works | The key now also leaves out sources that no longer exist, so a replay after an account's data was deleted is refused as before. |
+| A repeated write answered from its saved result only while the caller's sources are unchanged | Works | The core drops a deleted account from a connection's choice, so a replay after that account's data was deleted is refused as before (tested over MCP with a real connection). |
 | A chat with no scope is refused | Works differently | Every connection has a choice, made on the consent screen. A token without one is refused by the kit. |
 | A revoked scope is refused | Works differently | Disconnecting a connection in Settings makes its token fail with 401. Tested over MCP. |
 | A read-only scope can't write | Works | The kit refuses writes for read-only connections before the action runs. |
-| Deleting an account's data removes it from every chat's scope | Can't work | A connection's choice belongs to the kit, and the kit has no way for an app to drop one source from every connection's choice. Saved results can't leak it (above), but if the person later adds the same account again, a connection that had chosen it sees it again without being asked. Kit: let an app retire a source ID from every connection (finding K8). |
+| Deleting an account's data removes it from every chat's scope | Works | The core keeps each connection's choice to the sources the app still lists, and saves the shorter choice. Adding the same account again doesn't hand it back to a connection that had chosen it (tested over MCP with a real connection). |
 | The schedule sees only its automatically updated accounts | Works | Jobs run as the installation's owner. The sync job reads only accounts set to update automatically. |
 
 ## Limits
@@ -141,6 +145,7 @@ All of these run on the same code as before and pass the same tests (`test/rules
 | Ri started the app on demand over private IPC | Works differently | The app runs as the person's own service (`serve --install`), always on, at `http://127.0.0.1:<port>/mcp`. |
 | Ri's schedule ran its background steps | Works differently | The app's own job runner (`sync_sources`, `follow_up_tasks`). Settings shows each job's schedule and last run, with Run now. |
 | Data in Ri's app data directory | Works differently | In the installation's `data.sqlite` (`~/.local/share/job-search` or `APP_DATA_DIR`), so the kit's backups, restores and safe-change snapshots carry it. Message bodies and original files are kept in that database too. |
+| Backups and restores keep the database's own rules | Works | The core's backups now carry triggers and views, and a restore makes them after the rows. A backup from an older core (0.2.2 before kit #10, such as the change snapshots already in `~/.local/share/job-search/backups`) gets them back from the app's migrations, which `app-builder restore` passes. Tested both ways: after a restore, a submitted résumé version, a posting snapshot and a submission's materials still refuse an edit. |
 | Forward-only migrations, never edited once shipped | Works | Applied by the kit's checksum ledger (`app-0001` is the old schema plus the tables Ri's kit created at run time). |
 | Runs on Cloudflare | Can't work | The rules commit read-then-write transactions on a synchronous SQLite handle. The kit's database interface is asynchronous with atomic batches only, because D1 has no interactive transactions. The app opens its own synchronous better-sqlite3 handle on the same file in the same process, which only the Node service can do. The Worker entry is a stub that says so. Kit: interactive transactions on Node, or a documented way for an app to get the synchronous handle the core already holds (finding K9). |
 | Ri's "Try" preview with fictional records | Works differently | "Try with fictional records" in an empty app, in the browser or a host, loads the same fictional set, marked as fictional everywhere, with "Remove them". |
@@ -189,32 +194,43 @@ Small things seen, not fixed: the consent screen reads "All your parts of your j
 | What | Why |
 | --- | --- |
 | Running on Cloudflare | Kit gap K9: no interactive transactions on the platform's database. |
-| A deleted account's source can come back in an old connection's choice | Kit gap K8. |
-| The app finding which accounts Ri granted | Kit gap K1 (and Ri, R1). The person adds each account. |
+| A provider's "not found" by its code | Ri #7. Until Ri sends a Gmail or Calendar 404 or 410 as `not_found`, it arrives as `provider_error`, so the app still reads it from the message. |
+| The service in production mode | Kit gap K13. A switch keeps the old service definition, so `local.job-search` runs without `NODE_ENV=production` until it's installed again. Callers still never see stacks. |
 | Invitation files, reply linkage and calendar participants with only the kit's basic mail and calendar tools | Kit gaps K2 and K3. The app uses Ri's Gmail and Calendar tools by name when Ri lends them. |
 | Choosing a file inside a host's frame | Works in Ri (web and desktop): Save a job, then "Choose a PDF, Word or text file", opened the chooser from the frame. ChatGPT and Claude are untested. Open in browser covers a host that refuses. |
 | Open in browser on a phone or tablet | The kit doesn't offer an address on this computer away from it. The app has no other address while it runs on the Mac. |
 
 ## Findings for the kit
 
-Closed by core 0.2.2: K4 (opening at a record), K5 (view-only tools), K6 (a wider context, and a question drafted in the chat) and K7 (links and downloads from the view). Still open:
+Closed by core 0.2.2: K4 (opening at a record), K5 (view-only tools), K6 (a wider context, and a question drafted in the chat) and K7 (links and downloads from the view).
 
-- **K1. Which accounts the hub granted.** Ri's hub tells an app the accounts it may use only inside each tool's description, and the kit's connector client returns tool names only. An app can't list them, so the person types each address. Kit: expose tool input schemas or an `accounts()` call. Ri: list granted accounts as an enum on `account`, or offer a tool that lists them.
+Closed by kit #10 (kit `main` at `ff47742`), each shown by a test here:
+
+- **K1. Which accounts the hub granted.** `connectors(ctx).accounts()` lists them, and Sources offers them (`test/mcp.test.ts` with the fixture source, and the test host). Not run against a real Ri.
+- **K8. Retiring a source.** The core prunes deleted sources from connections' choices (`test/mcp.test.ts`, through a real connection).
+- **K11. Hub errors.** Errors keep Ri's `code`, and Ri's reconnect answers arrive as `SetupRequired` with it (`test/mcp.test.ts`). The app reads `not_found` by code, and from the message only for a provider's 404 until Ri #7.
+- **Backups without triggers** (found by the kit while fixing People's restore): backups now keep them (`test/backup.test.ts`).
+
+Fixed in the kit but not rechecked here: **K12**, `upgrade` writing a log into the default data directory of an app that isn't installed. Job Search is installed now, so its upgrade log belongs there.
+
+Still open:
+
 - **K2. Mail shape.** The kit's `MailMessage` still has no Message-ID, In-Reply-To, References, list headers or attachments, so invitation files and reply linkage need Gmail's own tools by name (`call`). Kit: add those fields and an attachment read to the mail capability.
 - **K3. Calendar shape.** The kit's `CalendarEvent` still has no participants, organizer, description, original time zone or cancellations. Kit: add them, or an incremental sync capability.
-- **K8. Retiring a source.** No way for an app to remove a deleted source from every connection's choice.
 - **K9. Transactions.** No interactive transaction on the platform's database, so an app with read-then-write rules runs on Node only, with its own synchronous handle on the same file.
-- **K10. Fixture source.** It answers every pass-through tool with one fixed result whatever the arguments, so Gmail history, full messages and calendar sync can't be exercised with it (this app's tests use a hub-shaped fake for those). Its mail search understands plain words and `from:`, `after:` and `before:` only, not Gmail's OR groups or exclusions, so the app's basic-tools path searches plain words.
-- **K11. Hub errors.** The connector client still keeps only the hub's message, not its error code (except `denied`), so the app reads "not found" (an expired history checkpoint, a deleted message) from the message text. Ri answers `authorization_required` and `additional_permission_required` as ordinary results without `isError`, and the client passes them through as data. The app treats them as "reconnect".
-- **K12. Where `upgrade` writes its log.** Run in an app that isn't installed as a service and without `APP_DATA_DIR`, `upgrade` created `~/.local/share/job-search/releases/` for its log and history, the default data directory of an installation that doesn't exist. Nothing else was written there.
+- **K10. Fixture source.** It answers every pass-through tool with one fixed result whatever the arguments, so Gmail history, full messages and calendar sync can't be exercised with it (this app's tests use a hub-shaped fake for those). Its mail search understands plain words and `from:`, `after:` and `before:` only, not Gmail's OR groups or exclusions, so the app's basic-tools path searches plain words. Since kit #10 it also answers Ri's errors and an account list, which this app's tests use.
+- **K13. A switch keeps the service definition.** `upgrade` and `change` switch the release but leave the launchd plist as it was installed, so `local.job-search` still runs without `NODE_ENV=production` (and on the nvm Node path) until `serve --install` runs again. Kit: rewrite the service definition on a switch, or say in the result that a reinstall is needed.
+- **K14. `ConnectorAccount` isn't exported** from `@app-builder/core`, so the app derives the type from `connectors()`.
+- **The strict test host and OAuth helper** still aren't exported from the core, so the app keeps its copy of `browser-host.ts` (unchanged in kit #10).
 
 ## Findings for Ri
 
-- **R1. Accounts.** See K1.
+- **R1. Accounts.** Ri #4 adds `ri__list_accounts`, which the core uses. Not checked against Ri here.
 - **R2. Approval for tasks.** The shared spec says an app's writes to the person's own data, such as Ri tasks, follow the person's normal settings and don't ask by default. Ri's hub, as read on November 12, asked for every app write. Not rechecked against Ri since. Job Search handles both: the follow-up waits for approval and its job retries the identical call.
 - **R4. Downloads.** Fixed by dynamismlabs/ri#2: export inside Ri saves through Ri's card.
 - **R5. A tool input named `account`.** Ri's engine reserves `account` and refuses a whole server whose tool declares it. `set_source`, `list_source_calendars` and `preview_source` took `account`, so Ri couldn't add Job Search at all. They now take `sourceAccount` (commit 0c3c59b, with a contract test). Ri should skip or rename that one tool rather than refuse the server.
 - **R6. Add app can't open a screen.** Ri publishes an app added with Add app as `app_<slug>.<tool>`, but Open app, the view's calls, the @ search and settings call `mcp.<slug>.<tool>`, which Ri doesn't know ("unknown action"). Add MCP server works around it.
 - **R7. A full-screen app's selection never reaches a message.** Ri drops a view's context when it closes, and its full-page screen has no chat beside it.
 - **R8. Ri has only a dark theme,** so the app's light look inside Ri can't be checked.
+- **R9. A provider's "not found".** Ri #7 sends a Gmail or Calendar 404 or 410 as `not_found`. Until it ships, the app keeps reading it from the message.
 - **R3. The model service** needs Ri's Claude subscription harness. Without it, Job Search's AI suggestions and email readings report "Extraction unavailable".

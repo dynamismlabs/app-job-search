@@ -1,6 +1,6 @@
 # Maintaining Job Search
 
-Job Search is an App Builder app: core 0.2.2 (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
+Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `ff47742` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
 
 ## Commands
 
@@ -24,7 +24,7 @@ Job Search is an App Builder app: core 0.2.2 (vendor/app-builder-core-0.2.2.tgz,
 
 - **Sources** (what a connection can be limited to): `manual` (saved jobs, interviews and preparation), `materials`, and `account:<account>` for each account added in Sources. Every read filters by the caller's sources before assembling results, including counts, sort keys, the projected stage and suggestions.
 - **Jobs**: `sync_sources` every five minutes runs bounded sync and enrichment steps for accounts that update automatically. `follow_up_tasks` every five minutes asks Ri again for follow-up tasks waiting for approval.
-- **Connectors**: mail and calendar reads through Ri's hub. The app uses Gmail's and Calendar's own tools by name when Ri lends them (history sync, full messages, sync tokens) and the core's mail and calendar adapters otherwise. Ri's services: `ri__ai_text`, `ri__extract_text`, `ri__create_task`, `ri__get_task`. Account `default` is the one account Ri allows, called without an `account` argument.
+- **Connectors**: mail and calendar reads through Ri's hub. The app uses Gmail's and Calendar's own tools by name when Ri lends them (history sync, full messages, sync tokens) and the core's mail and calendar adapters otherwise. Ri's services: `ri__ai_text`, `ri__extract_text`, `ri__create_task`, `ri__get_task`. Account `default` is the one account Ri allows, called without an `account` argument. Sources offers the accounts Ri lent (`lentAccounts` in `src/server/sync.ts`, from `connectors(ctx).accounts()`). Branch on a connector error's `code` (`capabilityError` in `src/lib/invocation.ts`). Its "not found" text match stays until Ri sends a provider's 404 or 410 as `not_found` (Ri #7).
 - **Context**: the screens report the section, its path and filters, and the selected records (one, or several when comparing) with the core's bounded context (`context()` in `src/view/kit/app.tsx`).
 - **View-only actions** (`viewOnly: true`, MCP Apps' `visibility: ["app"]`): the person's own decisions only, such as review decisions, deleting, importing, source setup and export. They still check the caller's access.
 - **Records**: `open_job_search` opens `/opportunities/<id>`, `/interviews/<id>`, `/materials/<id>` or a section, and the host's @ menu finds and reads records (`src/server/mentions.ts`), under the connection's access.
@@ -35,12 +35,12 @@ Job Search is an App Builder app: core 0.2.2 (vendor/app-builder-core-0.2.2.tgz,
 ## Invariants
 
 - Migrations are forward only. Never edit a migration that has shipped. Add the next one to `src/server/migrations.ts`.
-- Posting snapshots, material versions and submission material links are immutable (database triggers refuse updates). Editing a material saves a new version with a parent link.
+- Posting snapshots, material versions and submission material links are immutable (database triggers refuse updates, and a restored backup keeps them: `test/backup.test.ts`). Editing a material saves a new version with a parent link.
 - Every stage change goes through `changeStageFor`, which records an event with author, source, confidence and decision. A person's change sets the stage lock. Automatic changes never move a stage backward, never reopen a closed opportunity, and are suppressed and sent to review while a lock disagrees.
 - Never infer a rejection from a canceled meeting or from silence. Cancellations update the interview only.
 - A company domain alone must never attach a message to one of several roles (`src/domain/match.ts`).
 - Imported values, user corrections and effective values are stored separately for interviews. A sync never overwrites a correction.
-- Write receipts (`app_invocations`) are keyed to the caller's existing sources (`authorityOf` in `src/server/state.ts`). A replay by anyone but the owner after those sources change is refused and never writes again.
+- Write receipts (`app_invocations`) are keyed to the caller's sources (`authorityOf` in `src/server/state.ts`). The core drops a deleted account from every connection's choice, so a replay by anyone but the owner after those sources change, including after an account's data is deleted, is refused and never writes again.
 - An AI suggestion run stores every source supplied to the model. A reader sees the run's suggestions only when it may see all of them.
 - Contacts and company domains keep the source that taught them. Readers see only contacts from their sources.
 - AI output is untrusted. Prompts mark sources as data, replies are validated against strict schemas, quotes must be exact substrings, and AI readings only produce suggestions.
