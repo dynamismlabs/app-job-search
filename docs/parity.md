@@ -14,7 +14,7 @@ The findings that need a change in the kit or in Ri are collected at the end.
 
 **November 17 update.** The app moved to the core from kit `main` at `ff47742` (kit PR #10, still numbered 0.2.2). It fixed four of the gaps this port found, each shown here by a test: backups keep the triggers that keep submitted materials unchanged, the core drops a deleted account from connections' choices (K8), Ri's error codes and reconnect answers reach the app (K11), and the core lists the accounts Ri lent (K1), so Sources offers them with a button. The app's own workarounds for K8 and K11 are gone, except reading "not found" from Ri's message, which stays until Ri sends a provider's 404 or 410 as `not_found` (Ri #7).
 
-**v0.1.1 (November 17).** The app moved to the core from kit `main` at `df533b0` (kit #11 and #12, still numbered 0.2.2). Ri #7 is merged: Ri's hub sends a Gmail or Calendar 404 or 410 as `not_found` with Google's status. So the app reads "not found" by its code, and tells a calendar Google can't find (404) from an expired sync token (410): the first keeps its checkpoint and says so in Sources, the second restarts the window. It reads the words only from an older hub's `provider_error`. Tests cover both kinds of hub. The core now exports `ConnectorAccount` (K14), which the app uses.
+**v0.1.1 (November 17).** The app moved to the core from kit `main` at `a8e9b5d` (kit #11 to #13, still numbered 0.2.2). Ri #7 is merged: Ri's hub sends a Gmail or Calendar 404 or 410 as `not_found` with Google's status. So the app reads "not found" by its code, and tells a calendar Google can't find (404) from an expired sync token (410): the first keeps its checkpoint and says so in Sources, the second restarts the window. It reads the words only from an older hub's `provider_error`. Tests cover both kinds of hub. The core now exports `ConnectorAccount` (K14), which the app uses.
 
 ## How it was checked
 
@@ -196,7 +196,6 @@ Small things seen, not fixed: the consent screen reads "All your parts of your j
 | What | Why |
 | --- | --- |
 | Running on Cloudflare | Kit gap K9: no interactive transactions on the platform's database. |
-| The service in production mode | Kit gap K13. A switch keeps the old service definition, so `local.job-search` runs without `NODE_ENV=production` until it's installed again. Callers still never see stacks. |
 | Invitation files, reply linkage and calendar participants with only the kit's basic mail and calendar tools | Kit gaps K2 and K3. The app uses Ri's Gmail and Calendar tools by name when Ri lends them. |
 | Choosing a file inside a host's frame | Works in Ri (web and desktop): Save a job, then "Choose a PDF, Word or text file", opened the chooser from the frame. ChatGPT and Claude are untested. Open in browser covers a host that refuses. |
 | Open in browser on a phone or tablet | The kit doesn't offer an address on this computer away from it. The app has no other address while it runs on the Mac. |
@@ -214,6 +213,8 @@ Closed by kit #10 (kit `main` at `ff47742`), each shown by a test here:
 
 Closed by kit #12 (kit `main` at `df533b0`): **K14**, `ConnectorAccount` is exported, and the app imports it (`pnpm typecheck`).
 
+Closed by kit #12 and #13 (kit `main` at `a8e9b5d`): **K13**, a switch now rewrites the service definition. On November 17 `upgrade` switched `local.job-search` to `fd715f0`, and `plutil -p ~/Library/LaunchAgents/local.job-search.plist` then showed `NODE_ENV` `production` and `ProcessType` `Interactive`, with `/api/health` answering. Kit #13 sets `ProcessType` so launchd no longer throttles the service: two earlier switches to this release timed out on a 60-second health wait and rolled back. The service still runs Node from nvm (`v24.2.0`), which the kit keeps when no unversioned `node` is the same binary.
+
 Fixed in the kit but not rechecked here: **K12**, `upgrade` writing a log into the default data directory of an app that isn't installed. Job Search is installed now, so its upgrade log belongs there.
 
 Still open:
@@ -222,7 +223,6 @@ Still open:
 - **K3. Calendar shape.** The kit's `CalendarEvent` still has no participants, organizer, description, original time zone or cancellations. Kit: add them, or an incremental sync capability.
 - **K9. Transactions.** No interactive transaction on the platform's database, so an app with read-then-write rules runs on Node only, with its own synchronous handle on the same file.
 - **K10. Fixture source.** It answers every pass-through tool with one fixed result whatever the arguments, so Gmail history, full messages and calendar sync can't be exercised with it (this app's tests use a hub-shaped fake for those). Its mail search understands plain words and `from:`, `after:` and `before:` only, not Gmail's OR groups or exclusions, so the app's basic-tools path searches plain words. Since kit #10 it also answers Ri's errors and an account list, which this app's tests use.
-- **K13. A switch keeps the service definition.** `upgrade` and `change` switch the release but leave the launchd plist as it was installed, so `local.job-search` still runs without `NODE_ENV=production` (and on the nvm Node path) until `serve --install` runs again. Kit: rewrite the service definition on a switch, or say in the result that a reinstall is needed.
 - **The strict test host and OAuth helper** still aren't exported from the core, so the app keeps its copy of `browser-host.ts` (unchanged in kit #10).
 
 ## Findings for Ri

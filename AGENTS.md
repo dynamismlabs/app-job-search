@@ -1,6 +1,6 @@
 # Maintaining Job Search
 
-Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `df533b0` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
+Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `a8e9b5d` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
 
 ## Commands
 
