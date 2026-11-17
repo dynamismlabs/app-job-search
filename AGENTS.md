@@ -1,6 +1,6 @@
 # Maintaining Job Search
 
-Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `a8e9b5d` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
+Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `023f92f` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
 
 ## Commands
 
@@ -15,7 +15,7 @@ Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `a8e9b5
 - `src/domain/` is pure logic with no storage: classification, matching, posting extraction, compensation, diffs and AI prompt validation. `labels.ts` has no schemas so the view can import it.
 - `src/server/` is the query layer. Every write goes through these modules, never raw SQL in an action. `state.ts` binds the installation's storage for each request and job run. `migrations.ts` holds the schema.
 - `src/api/` defines actions in the shape they had in Ri, with strict zod (`zod/v3`) input and output. `src/lib/action.ts` turns each into a core action.
-- `src/lib/` replaces what Ri's app kit provided: `db.ts` (the synchronous SQLite handle on the installation database), `data.ts` (transactions, cursors, scopes, the step queue, blobs), `sources.ts` (Gmail and Calendar sync), `invocation.ts` (the caller, its access and the hub), `time.ts`, `contract.ts`.
+- `src/lib/` replaces what Ri's app kit provided: `db.ts` (the query layer's synchronous handle on the core's connection, through the core's `transaction()`), `data.ts` (transactions, cursors, scopes, the step queue, blobs), `sources.ts` (Gmail and Calendar sync), `invocation.ts` (the caller, its access and the hub), `time.ts`, `contract.ts`.
 - `src/views.ts` declares `show_opportunities` and `show_today`. `src/view/cards.tsx` draws them.
 - `src/view/` is the screens. `src/view/kit/` is the UI kit they were written with, kept here since Ri removed it. `src/view/kit/app.tsx` is the bridge from its host interface to App Builder's client.
 - `fixtures/connectors.json` is the fictional hub for `APP_CONNECTORS=fixtures`. `test/` is the tests.
@@ -44,7 +44,7 @@ Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `a8e9b5
 - An AI suggestion run stores every source supplied to the model. A reader sees the run's suggestions only when it may see all of them.
 - Contacts and company domains keep the source that taught them. Readers see only contacts from their sources.
 - AI output is untrusted. Prompts mark sources as data, replies are validated against strict schemas, quotes must be exact substrings, and AI readings only produce suggestions.
-- Transactions are synchronous and never wait on anything: read from the hub first, then commit records and checkpoint together.
+- Transactions are synchronous and never wait on anything: read from the hub first, then commit records and checkpoint together. Use `transaction` from `src/lib/data.ts`, which runs the core's `transaction()` and joins one already open. Never open a second connection to `data.sqlite`.
 - Background work is bounded steps committed with their checkpoints. The core's job runner drives them.
 
 ## Copy
