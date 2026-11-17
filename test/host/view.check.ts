@@ -166,6 +166,26 @@ try {
     expect(sources.map((source) => `${source.account}:${source.kind}`)).toContain("sam.rivera@example.test:mail");
   });
 
+  await step("Settings opens inside the view, asks before removing this view's own connection, and Back returns to the app", async () => {
+    const forModel = await host.modelTools();
+    for (const name of ["read_settings", "change_settings"]) expect(forModel, name).not.toContain(name);
+    await host.mount("open_job_search", { path: "/sources" });
+    await quiet();
+    await view.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(view.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+    const own = view.locator(".connection-row", { hasText: "(this one)" });
+    await expect(own).toContainText("Qualification host");
+    await own.getByRole("button", { name: "Disconnect" }).click();
+    await expect(own.getByRole("status")).toContainText("This view uses it");
+    await own.getByRole("button", { name: "Keep it" }).click();
+    await expect(view.getByRole("heading", { name: "Automations" })).toBeVisible();
+    await expect(view.locator(".job-row")).toHaveCount(2);
+    await view.getByRole("button", { name: /Back to Job Search/ }).click();
+    await expect(view.getByRole("heading", { name: "Settings", level: 1 })).toHaveCount(0);
+    await expect(view.getByRole("tablist", { name: "Job Search sections" })).toBeVisible();
+    expect((await host.appCall("list_sources", {})).isError).toBeFalsy();
+  });
+
   expect(failures).toEqual([]);
   console.log(`Job Search's view passed ${passed} checks in the strict test host.`);
 } finally {

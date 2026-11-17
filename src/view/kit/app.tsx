@@ -195,9 +195,8 @@ export function RiAppProvider({ children, stateAction, toData, css }: RiAppProvi
     async openSources() { pending.current.add("/sources"); depth.current++; navigate("/sources"); },
     async manageAccess() {
       if (!client.embedded) { window.location.assign("/settings"); return; }
-      if (await client.openInBrowser("/settings")) return;
-      const url = client.browserURL("/settings");
-      setNotice(url ? `Open Job Search's Settings in your browser: ${url}` : "Which assistants may use Job Search, and what each may see, is in Job Search's Settings in your browser.");
+      // The core's Settings works inside the view too (connections, the link to Ri, automations), through the view's router.
+      pending.current.add("/settings"); depth.current++; navigate("/settings");
     },
     setLocation(path: string, options: { replace?: boolean; push?: boolean } = {}) {
       const current = window.location.pathname + window.location.search;
