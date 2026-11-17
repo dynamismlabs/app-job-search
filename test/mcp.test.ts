@@ -85,6 +85,33 @@ describe('as an MCP server', () => {
   });
 });
 
+describe('access after an account\'s data is deleted', () => {
+  it('the core drops the account from a connection\'s choice, so a replayed write is refused and the account doesn\'t come back', async () => {
+    await setup();
+    const PRIVATE = 'acct-private';
+    app().accounts.setup({ account: PRIVATE, kind: 'mail', historyDays: 90, label: 'Private Gmail' });
+    const { accessToken } = await createTestConnection(platform(), { name: 'Ri · Search', sources: ['manual', `account:${PRIVATE}`], write: true });
+    const client = await connect(accessToken);
+    const record = result<{ record: { id: string; revision: number } }>(await client.callTool({ name: 'save_opportunity', arguments: { company: 'Lumen', role: 'Staff designer' } })).record;
+    const keys = async () => result<{ coverage: { sources: { key: string }[] } }>(await client.callTool({ name: 'get_opportunity', arguments: { id: record.id } })).coverage.sources.map((source) => source.key);
+    expect(await keys()).toEqual(['manual', `account:${PRIVATE}`]);
+    const operationId = crypto.randomUUID();
+    const input = { id: record.id, expectedRevision: record.revision, notes: 'Ask about the team', operationId };
+    expect((await client.callTool({ name: 'save_opportunity', arguments: input })).isError).toBeFalsy();
+
+    // The person deletes that account's data in Sources.
+    await call('delete_source_data', { source: `account:${PRIVATE}`, confirm: 'delete' }, owner());
+    const replay = await client.callTool({ name: 'save_opportunity', arguments: input });
+    expect(replay.isError).toBe(true);
+    expect(JSON.stringify(replay.content)).toMatch(/Your access changed/);
+    expect(await keys()).toEqual(['manual']);
+    // Adding the same account again doesn't hand it back to a connection that had chosen it.
+    app().accounts.setup({ account: PRIVATE, kind: 'mail', historyDays: 90, label: 'Private Gmail' });
+    expect(await keys()).toEqual(['manual']);
+    await client.close();
+  });
+});
+
 describe('opening at a record and the @ menu', () => {
   it('offers records under each connection\'s access, reads one as text, and opens the app at its path', async () => {
     await setup();

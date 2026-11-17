@@ -228,8 +228,7 @@ describe('bounded Gmail sync', () => {
     expect(opened.stageHistory.every((event: { source: string }) => event.source === 'manual')).toBe(true);
     const keptPrep = await call('get_preparation', { opportunityId: record.id }, owner());
     expect(keptPrep).toMatchObject({ notes: 'Prep notes.', interviewId: null });
-    // Ri's scopes forgot a deleted source. A connection's choice is the core's (connection_access), and the
-    // core offers apps no way to remove one source from it: see docs/parity.md.
+    // Ri's scopes forgot a deleted source. The core does the same for a connection's choice: see mcp.test.ts.
     expect(app().mail.seen('acct', 'o')).toBe(false);
   });
 });

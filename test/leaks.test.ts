@@ -55,18 +55,9 @@ describe('replay of a cached write after the caller\'s scope narrows', () => {
     expect(receipts()).toBe(count);
   });
 
-  it('a replay after the scope narrows in place, when the owner deletes that account\'s data, is a conflict and writes nothing', async () => {
-    const { record, scopeRef, invocationId, input } = await scenario();
-    await call('delete_source_data', { source: `account:${PRIVATE}`, confirm: 'delete' }, owner({ accounts }));
-    // The connection's choice still names the deleted account (the core keeps it), but that source no longer exists.
-    const before = (await call('get_opportunity', { id: record.id }, owner())).opportunity;
-    const count = receipts();
-    await expect(call('save_opportunity', input, chat('c-1', scopeRef, { id: invocationId }))).rejects.toMatchObject({ code: 'conflict', message: expect.stringMatching(/Your access changed/) });
-    const after = (await call('get_opportunity', { id: record.id }, owner())).opportunity;
-    expect(after.revision).toBe(before.revision);
-    expect(after.notes).toBe('Ask about the team');
-    expect(receipts()).toBe(count);
-  });
+  // A replay after the owner deletes an account's data: the core drops that account from the
+  // connection's choice, so the replay is refused. Tested through a real connection in mcp.test.ts
+  // ("access after an account's data is deleted"), since this file's chat() stands in for the core.
 
   it('a replay after the chat\'s grant is replaced by a narrower scope is a conflict and writes nothing', async () => {
     const { record, scopeRef, invocationId, input } = await scenario();

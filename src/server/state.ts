@@ -8,8 +8,7 @@
 import { z } from 'zod/v3';
 import type { Platform } from '@app-builder/core';
 import { AppError } from '../lib/contract.js';
-import { accountSource, createBlobStore, createJobQueue, createSettings, nowIso, scopeFingerprint, sha256, transaction, type AccessScope, type BlobStore, type JobQueue, type SqlDatabase } from '../lib/data.js';
-import { MANUAL_SOURCE, MATERIALS_SOURCE } from '../domain/model.js';
+import { createBlobStore, createJobQueue, createSettings, nowIso, scopeFingerprint, sha256, transaction, type AccessScope, type BlobStore, type JobQueue, type SqlDatabase } from '../lib/data.js';
 import { createAccountStore, createMailIndex, type AccountStore, type MailIndex } from '../lib/sources.js';
 import { databaseFor } from '../lib/db.js';
 import { DEFAULT_ACCOUNT, type AppInvocation, type InvocationAccess } from '../lib/invocation.js';
@@ -95,16 +94,14 @@ function mutate<T>(db: SqlDatabase, invocation: AppInvocation, action: string, i
 }
 
 /**
- * What a saved write result may hold: the sources this caller may see that
- * still exist. In Ri, deleting an account's data also removed it from every
- * chat's scope. A connection's choice belongs to the core here and keeps the
- * old source, so the key leaves out sources that no longer exist: a replay
- * after the account's data was deleted is refused, as before.
+ * What a saved write result may hold: the sources this caller may see. In Ri,
+ * deleting an account's data also removed it from every chat's scope. The
+ * core does the same here: a connection's choice keeps only the sources
+ * `sources.list` still returns, so a replay after the account's data was
+ * deleted is refused, as before.
  */
 export function authorityOf(scope: AccessScope): string {
-  if (scope.kind === 'owner') return scopeFingerprint(scope);
-  const existing = new Set([MANUAL_SOURCE, MATERIALS_SOURCE, ...app().accounts.list().map((account) => accountSource(account.account))]);
-  return sha256(JSON.stringify([...scope.sources].filter((source) => existing.has(source)).sort()));
+  return scopeFingerprint(scope);
 }
 
 /**
