@@ -14,9 +14,11 @@ The findings that need a change in the kit or in Ri are collected at the end.
 
 **November 17 update.** The app moved to the core from kit `main` at `ff47742` (kit PR #10, still numbered 0.2.2). It fixed four of the gaps this port found, each shown here by a test: backups keep the triggers that keep submitted materials unchanged, the core drops a deleted account from connections' choices (K8), Ri's error codes and reconnect answers reach the app (K11), and the core lists the accounts Ri lent (K1), so Sources offers them with a button. The app's own workarounds for K8 and K11 are gone, except reading "not found" from Ri's message, which stays until Ri sends a provider's 404 or 410 as `not_found` (Ri #7).
 
+**v0.1.1 (November 17).** The app moved to the core from kit `main` at `df533b0` (kit #11 and #12, still numbered 0.2.2). Ri #7 is merged: Ri's hub sends a Gmail or Calendar 404 or 410 as `not_found` with Google's status. So the app reads "not found" by its code, and tells a calendar Google can't find (404) from an expired sync token (410): the first keeps its checkpoint and says so in Sources, the second restarts the window. It reads the words only from an older hub's `provider_error`. Tests cover both kinds of hub. The core now exports `ConnectorAccount` (K14), which the app uses.
+
 ## How it was checked
 
-- **Tests**: the old app's tests, ported. 107 tests in 10 files, all fictional data. The domain tests run unchanged. The rules, workflow, sync, access, leak and release tests run through the kit's own action router, with Ri's hub played by a hub-shaped fake (`test/fakes.ts`) or by the kit's fixture source (`fixtures/connectors.json`). New tests cover the MCP server (OAuth token required, tool list, read-only connections, a connection limited to some sources, disconnecting in Settings) and the hub through the kit's fixture source (the scheduled import, a duplicate wake-up, an unreachable or revoked hub, a follow-up waiting for approval in Ri, text extraction, the model being unavailable, Ri's error codes and reconnect answers, the accounts Ri lent, a deleted account leaving a real connection's choice) and backups (a restore keeps the immutability triggers, from this core's backups and from older ones).
+- **Tests**: the old app's tests, ported. 110 tests in 10 files, all fictional data. The domain tests run unchanged. The rules, workflow, sync, access, leak and release tests run through the kit's own action router, with Ri's hub played by a hub-shaped fake (`test/fakes.ts`) or by the kit's fixture source (`fixtures/connectors.json`). New tests cover the MCP server (OAuth token required, tool list, read-only connections, a connection limited to some sources, disconnecting in Settings) and the hub through the kit's fixture source (the scheduled import, a duplicate wake-up, an unreachable or revoked hub, a follow-up waiting for approval in Ri, text extraction, the model being unavailable, Ri's error codes and reconnect answers, the accounts Ri lent, a deleted account leaving a real connection's choice), a provider's "not found" from Ri's hub before and after Ri #7 (a calendar Google can't find told apart from an expired sync token) and backups (a restore keeps the immutability triggers, from this core's backups and from older ones).
 - **By hand**, on disposable data directories:
   - The screens in a browser with the fixture hub: Today, Opportunities (board and the phone-width stage sections, with no sideways scroll), the workspace and Sources.
   - `serve --install --service process` passed every step (install, typecheck, tests, build, rehearsal, switch) and answered on `/api/health`. Both jobs showed in Settings' job list, and Run now finished with "Connect this app to Ri in Settings to use your accounts." The service was then removed with `serve --uninstall`.
@@ -194,7 +196,6 @@ Small things seen, not fixed: the consent screen reads "All your parts of your j
 | What | Why |
 | --- | --- |
 | Running on Cloudflare | Kit gap K9: no interactive transactions on the platform's database. |
-| A provider's "not found" by its code | Ri #7. Until Ri sends a Gmail or Calendar 404 or 410 as `not_found`, it arrives as `provider_error`, so the app still reads it from the message. |
 | The service in production mode | Kit gap K13. A switch keeps the old service definition, so `local.job-search` runs without `NODE_ENV=production` until it's installed again. Callers still never see stacks. |
 | Invitation files, reply linkage and calendar participants with only the kit's basic mail and calendar tools | Kit gaps K2 and K3. The app uses Ri's Gmail and Calendar tools by name when Ri lends them. |
 | Choosing a file inside a host's frame | Works in Ri (web and desktop): Save a job, then "Choose a PDF, Word or text file", opened the chooser from the frame. ChatGPT and Claude are untested. Open in browser covers a host that refuses. |
@@ -208,8 +209,10 @@ Closed by kit #10 (kit `main` at `ff47742`), each shown by a test here:
 
 - **K1. Which accounts the hub granted.** `connectors(ctx).accounts()` lists them, and Sources offers them (`test/mcp.test.ts` with the fixture source, and the test host). Not run against a real Ri.
 - **K8. Retiring a source.** The core prunes deleted sources from connections' choices (`test/mcp.test.ts`, through a real connection).
-- **K11. Hub errors.** Errors keep Ri's `code`, and Ri's reconnect answers arrive as `SetupRequired` with it (`test/mcp.test.ts`). The app reads `not_found` by code, and from the message only for a provider's 404 until Ri #7.
+- **K11. Hub errors.** Errors keep Ri's `code`, and Ri's reconnect answers arrive as `SetupRequired` with it (`test/mcp.test.ts`). Since kit #11 a `ConnectorError` also carries the provider's `httpStatus`, which the app reads to tell a missing calendar from an expired sync token (`test/sync.test.ts`).
 - **Backups without triggers** (found by the kit while fixing People's restore): backups now keep them (`test/backup.test.ts`).
+
+Closed by kit #12 (kit `main` at `df533b0`): **K14**, `ConnectorAccount` is exported, and the app imports it (`pnpm typecheck`).
 
 Fixed in the kit but not rechecked here: **K12**, `upgrade` writing a log into the default data directory of an app that isn't installed. Job Search is installed now, so its upgrade log belongs there.
 
@@ -220,7 +223,6 @@ Still open:
 - **K9. Transactions.** No interactive transaction on the platform's database, so an app with read-then-write rules runs on Node only, with its own synchronous handle on the same file.
 - **K10. Fixture source.** It answers every pass-through tool with one fixed result whatever the arguments, so Gmail history, full messages and calendar sync can't be exercised with it (this app's tests use a hub-shaped fake for those). Its mail search understands plain words and `from:`, `after:` and `before:` only, not Gmail's OR groups or exclusions, so the app's basic-tools path searches plain words. Since kit #10 it also answers Ri's errors and an account list, which this app's tests use.
 - **K13. A switch keeps the service definition.** `upgrade` and `change` switch the release but leave the launchd plist as it was installed, so `local.job-search` still runs without `NODE_ENV=production` (and on the nvm Node path) until `serve --install` runs again. Kit: rewrite the service definition on a switch, or say in the result that a reinstall is needed.
-- **K14. `ConnectorAccount` isn't exported** from `@app-builder/core`, so the app derives the type from `connectors()`.
 - **The strict test host and OAuth helper** still aren't exported from the core, so the app keeps its copy of `browser-host.ts` (unchanged in kit #10).
 
 ## Findings for Ri
@@ -232,5 +234,5 @@ Still open:
 - **R6. Add app can't open a screen.** Ri publishes an app added with Add app as `app_<slug>.<tool>`, but Open app, the view's calls, the @ search and settings call `mcp.<slug>.<tool>`, which Ri doesn't know ("unknown action"). Add MCP server works around it.
 - **R7. A full-screen app's selection never reaches a message.** Ri drops a view's context when it closes, and its full-page screen has no chat beside it.
 - **R8. Ri has only a dark theme,** so the app's light look inside Ri can't be checked.
-- **R9. A provider's "not found".** Ri #7 sends a Gmail or Calendar 404 or 410 as `not_found`. Until it ships, the app keeps reading it from the message.
+- **R9. A provider's "not found".** Fixed by Ri #7: a Gmail or Calendar 404 or 410 arrives as `not_found` with Google's status. The app reads the code, and the words only from an older hub's `provider_error` (`test/sync.test.ts`, with the hub-shaped fake in both shapes). Not checked against Ri here.
 - **R3. The model service** needs Ri's Claude subscription harness. Without it, Job Search's AI suggestions and email readings report "Extraction unavailable".
