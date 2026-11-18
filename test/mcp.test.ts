@@ -49,6 +49,31 @@ describe('as an MCP server', () => {
     await client.close();
   });
 
+  it('tells assistants how its tools fit together, and offers Ri\'s two Job Search skills as prompts', async () => {
+    await setup();
+    const client = await connect((await createTestConnection(platform(), { name: 'Ri' })).accessToken);
+    const instructions = client.getInstructions() ?? '';
+    expect(instructions).toBe(application.config.instructions);
+    expect(instructions.length).toBeLessThanOrEqual(2000);
+    expect(instructions).toMatch(/open_job_search at \/sources/);
+    const listed = (await client.listPrompts()).prompts;
+    expect(listed.map((prompt) => prompt.name)).toEqual(['review-applications', 'prepare-for-an-interview']);
+    expect(listed.map((prompt) => prompt.title)).toEqual(['Review my applications', 'Prepare for an interview']);
+    // The steps name the tools to read through.
+    const prepared = await client.getPrompt({ name: 'prepare-for-an-interview' });
+    expect(prepared.messages).toHaveLength(1);
+    expect(prepared.messages[0].role).toBe('user');
+    const text = (prepared.messages[0].content as { text: string }).text;
+    expect(text).toMatch(/^Help me prepare for an interview with Job Search\.\n/);
+    expect(text).toMatch(/list_interviews \(upcoming only\)\. If more than one is coming up/);
+    expect(text).toMatch(/save_preparation, passing the revision you read/);
+    const review = await client.getPrompt({ name: 'review-applications' });
+    expect((review.messages[0].content as { text: string }).text).toMatch(/^Review my job applications in Job Search\. If I name a company or role, focus on it\.\n[\s\S]*open_job_search at \/sources/);
+    // Picking a prompt prepares a request and changes nothing.
+    expect(Number(app().db.prepare("SELECT value FROM app_settings WHERE key = 'data.revision'").get()?.value ?? 0)).toBe(0);
+    await client.close();
+  });
+
   it('a connection allowed to change records saves through MCP; a read-only one is refused and sees the saved record', async () => {
     await setup();
     const writer = await connect((await createTestConnection(platform(), { name: 'Ri', write: true })).accessToken);

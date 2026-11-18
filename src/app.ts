@@ -25,6 +25,7 @@ import { accessNow, app } from "./server/state.js";
 import { exportRecords } from "./server/view.js";
 import { MIGRATIONS } from "./server/migrations.js";
 import { views } from "./views.js";
+import { prompts } from "./prompts.js";
 import { RECORD_PATHS, readRecord, searchRecords } from "./server/mentions.js";
 
 const definitions = [...viewActions, ...opportunityActions, ...interviewActions, ...materialActions, ...preparationActions, ...reviewActions, ...followUpActions, ...importActions, ...sourceActions];
@@ -33,6 +34,8 @@ export const application: Application = {
   config: appConfig,
   actions: definitions.map(toAction),
   views,
+  /** Ri's two Job Search skills, as requests the person starts from an assistant (prompts.ts). */
+  prompts,
   migrations: MIGRATIONS,
   /**
    * What an assistant connection can be limited to on the consent screen:

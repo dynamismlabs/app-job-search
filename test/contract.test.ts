@@ -92,14 +92,15 @@ describe('contract', () => {
     expect(contract.connectors?.tools?.filter((tool) => !/^(gmail__(get|read|list)|google_calendar__(list|sync)|ri__(ai_text|extract_text|get_task))/.test(tool))).toEqual(['ri__create_task']);
   });
 
-  it('keeps user-visible and model-facing copy free of long dashes and semicolons', () => {
-    for (const action of contract.actions) {
-      expect(action.description).not.toMatch(/[—–]/);
-      expect(action.description).not.toContain(';');
+  it('keeps user-visible and model-facing copy free of long dashes and semicolons', async () => {
+    const prompts = await Promise.all(application.prompts!.map(async (prompt) => [prompt.title, prompt.description, JSON.stringify(await prompt.messages({} as never, {}))]));
+    for (const text of [...contract.actions.map((action) => action.description), application.config.instructions!, ...prompts.flat()]) {
+      expect(text).not.toMatch(/[—–]/);
+      expect(text).not.toContain(';');
     }
-    const files: string[] = [];
+    const files: string[] = [path.join(root, 'app.config.ts'), path.join(root, 'src/prompts.ts')];
     const walk = (dir: string) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) entry.isDirectory() ? walk(path.join(dir, entry.name)) : files.push(path.join(dir, entry.name)); };
-    for (const dir of ['src/api', 'src/server', 'src/domain', 'src/view', 'skills']) walk(path.join(root, dir));
+    for (const dir of ['src/api', 'src/server', 'src/domain', 'src/view']) walk(path.join(root, dir));
     const isPattern = (literal: string) => literal.includes('(?:') || literal.includes('\\') || /=>|[{}]|\(\)/.test(literal);
     for (const file of [...files, path.join(root, 'README.md'), path.join(root, 'AGENTS.md'), path.join(root, 'docs/parity.md')]) {
       if (!fs.existsSync(file)) continue;
