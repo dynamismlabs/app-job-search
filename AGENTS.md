@@ -1,6 +1,6 @@
 # Maintaining Job Search
 
-Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `023f92f` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
+Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `73c5266` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
 
 ## Commands
 
@@ -11,14 +11,15 @@ Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `023f92
 
 ## Layout
 
-- `src/app.ts` is the application: actions, views, migrations, sources, jobs and connectors. Importing it opens nothing.
+- `src/app.ts` is the application: actions, views, prompts, migrations, sources, jobs and connectors. Importing it opens nothing.
+- `app.config.ts` holds the server's `instructions`: what a model needs across the tools, at most 2,000 characters, never a repeat of a tool's description. `src/prompts.ts` holds the prompts, Ri's two Job Search skills, which name the tools and read nothing themselves. Prompt arguments wait on a kit fix (docs/parity.md, K23).
 - `src/domain/` is pure logic with no storage: classification, matching, posting extraction, compensation, diffs and AI prompt validation. `labels.ts` has no schemas so the view can import it.
 - `src/server/` is the query layer. Every write goes through these modules, never raw SQL in an action. `state.ts` binds the installation's storage for each request and job run. `migrations.ts` holds the schema.
 - `src/api/` defines actions in the shape they had in Ri, with strict zod (`zod/v3`) input and output. `src/lib/action.ts` turns each into a core action.
 - `src/lib/` replaces what Ri's app kit provided: `db.ts` (the query layer's synchronous handle on the core's connection, through the core's `transaction()`), `data.ts` (transactions, cursors, scopes, the step queue, blobs), `sources.ts` (Gmail and Calendar sync), `invocation.ts` (the caller, its access and the hub), `time.ts`, `contract.ts`.
 - `src/views.ts` declares `show_opportunities` and `show_today`. `src/view/cards.tsx` draws them.
 - `src/view/` is the screens. `src/view/kit/` is the UI kit they were written with, kept here since Ri removed it. `src/view/kit/app.tsx` is the bridge from its host interface to App Builder's client.
-- `fixtures/connectors.json` is the fictional hub for `APP_CONNECTORS=fixtures`. `test/` is the tests.
+- `fixtures/connectors.json` is the fictional hub for `APP_CONNECTORS=fixtures`. A tool whose answer depends on its arguments answers by `cases`. `test/` is the tests.
 
 ## Sources, jobs and connectors
 
