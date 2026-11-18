@@ -219,9 +219,7 @@ describe('with the core\'s fixture source in Ri\'s place', () => {
     platform().connectors = hub;
     const record = (await call('save_opportunity', { company: 'Lumen', role: 'Staff designer' }, owner({ hub }))).record;
     await call('create_follow_up', { subject: { type: 'opportunity', id: record.id }, title: 'Follow up with Lumen', operationId: crypto.randomUUID() }, owner({ hub }));
-    // Ri answers not_found with a message that doesn't say so: the app reads the code.
-    hub = fixtureSource({ ...fixtures, tools: { ...fixtures.tools, ri__get_task: { error: { code: 'not_found', message: 'ri__get_task failed.' } } } });
-    platform().connectors = hub;
+    // The fixtures hold only task e001, so Ri answers not_found for this one, with a message that doesn't say so: the app reads the code.
     const listed = await call('list_follow_ups', { opportunityId: record.id }, owner({ hub }));
     expect(listed.items[0].task).toMatchObject({ available: false, reason: 'This Ri task was deleted' });
     // Ri asks the person to reconnect Google as an ordinary answer. The core makes it a setup state, with Ri's code.

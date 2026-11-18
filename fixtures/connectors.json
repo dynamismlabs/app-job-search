@@ -58,8 +58,11 @@
   },
   "tools": {
     "ri__ai_text": { "result": { "text": "{\"category\":\"other\",\"quote\":\"\"}" } },
-    "ri__extract_text": { "result": { "text": "Platform designer at Pinecrest\n\nRequirements\n- Five years designing internal platforms.", "truncated": false, "characters": 84 } },
+    "ri__extract_text": { "cases": [{ "args": { "fileName": "pinecrest.pdf" }, "result": { "text": "Platform designer at Pinecrest\n\nRequirements\n- Five years designing internal platforms.", "truncated": false, "characters": 84 } }] },
     "ri__create_task": { "approval": true },
-    "ri__get_task": { "result": { "id": "0192f0aa-0000-7000-8000-00000000e001", "title": "Follow up", "status": "todo" } }
+    "ri__get_task": {
+      "cases": [{ "args": { "id": "0192f0aa-0000-7000-8000-00000000e001" }, "result": { "id": "0192f0aa-0000-7000-8000-00000000e001", "title": "Follow up", "status": "todo" } }],
+      "error": { "code": "not_found", "message": "ri__get_task failed." }
+    }
   }
 }
