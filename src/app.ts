@@ -41,9 +41,10 @@ export const application: Application = {
    * What an assistant connection can be limited to on the consent screen:
    * the two collections the person keeps, and each account read through Ri.
    * Every read filters by it before anything is assembled (server/project.ts).
+   * The label is a plural noun: the core says "All your …, including new ones".
    */
   sources: {
-    label: "parts of your job search",
+    label: "collections and accounts",
     list: (ctx) => runHandler(ctx, () => [
       { id: MANUAL_SOURCE, name: COLLECTION_LABELS[MANUAL_SOURCE], detail: "Opportunities, postings, stage history, interviews you added, preparation and follow-ups" },
       { id: MATERIALS_SOURCE, name: COLLECTION_LABELS[MATERIALS_SOURCE], detail: "Résumé, cover letter and other material versions" },

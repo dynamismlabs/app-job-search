@@ -87,6 +87,23 @@ describe('as an MCP server', () => {
     await client.close();
   });
 
+  it('lets the host that installed it see the access choices with its key, in plain words', async () => {
+    await setup();
+    // Core 0.2.3's host grant: the computer's host key (made in the data directory) instead of a browser.
+    const server = createApp(viewed, () => ({ ...platform(), hostKey: 'fictional-host-key' }));
+    const choices = (key: string) => server.request(`${BASE}/api/host/access-choices`, { headers: { authorization: `Bearer ${key}` } });
+    expect((await choices('another-key')).status).toBe(401);
+    const answered = await choices('fictional-host-key');
+    expect(answered.status).toBe(200);
+    expect(await answered.json()).toEqual({
+      choices: [
+        { access: 'write', label: 'Read and make changes', description: 'It can read and change what it can see. It sees all your collections and accounts, including new ones.' },
+        { access: 'read', label: 'Read only', description: 'It can only read what it can see. It sees all your collections and accounts, including new ones.' },
+      ],
+      recommended: 'write',
+    });
+  });
+
   it('a connection allowed to change records saves through MCP; a read-only one is refused and sees the saved record', async () => {
     await setup();
     const writer = await connect((await createTestConnection(platform(), { name: 'Ri', write: true })).accessToken);
