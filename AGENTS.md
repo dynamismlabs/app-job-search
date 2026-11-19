@@ -1,6 +1,6 @@
 # Maintaining Job Search
 
-Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `73c5266` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
+Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `e44b499` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
 
 ## Commands
 
@@ -12,7 +12,7 @@ Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `73c526
 ## Layout
 
 - `src/app.ts` is the application: actions, views, prompts, migrations, sources, jobs and connectors. Importing it opens nothing.
-- `app.config.ts` holds the server's `instructions`: what a model needs across the tools, at most 2,000 characters, never a repeat of a tool's description. `src/prompts.ts` holds the prompts, Ri's two Job Search skills, which name the tools and read nothing themselves. Prompt arguments wait on a kit fix (docs/parity.md, K23).
+- `app.config.ts` holds the server's `instructions`: what a model needs across the tools, at most 2,000 characters, never a repeat of a tool's description. `src/prompts.ts` holds the prompts, Ri's two Job Search skills, which name the tools and read nothing themselves. Prompt arguments are optional text (`z.string()` or `z.enum`), and a blank one counts as left out, since some hosts send it.
 - `src/domain/` is pure logic with no storage: classification, matching, posting extraction, compensation, diffs and AI prompt validation. `labels.ts` has no schemas so the view can import it.
 - `src/server/` is the query layer. Every write goes through these modules, never raw SQL in an action. `state.ts` binds the installation's storage for each request and job run. `migrations.ts` holds the schema.
 - `src/api/` defines actions in the shape they had in Ri, with strict zod (`zod/v3`) input and output. `src/lib/action.ts` turns each into a core action.
