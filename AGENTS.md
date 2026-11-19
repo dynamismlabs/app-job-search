@@ -1,13 +1,13 @@
 # Maintaining Job Search
 
-Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `e44b499` (vendor/app-builder-core-0.2.2.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
+Job Search is an App Builder app: core 0.2.3 as built from kit `main` at `b38d373` (vendor/app-builder-core-0.2.3.tgz, moved there with the kit's `upgrade`), starter 0.2.0. Read README.md for what it does, docs/parity.md for how it differs from the app Ri used to carry, and the build skill in .agents/skills/build-personal-app for how App Builder apps are built, run and changed. Use pnpm.
 
 ## Commands
 
 - `pnpm typecheck`, `pnpm test` (vitest) and `pnpm build` before handing off. After `pnpm build`, `pnpm test:host` runs the view in the kit's strict MCP Apps test host (`test/host/browser-host.ts`, copied from the kit) and stops everything it starts.
 - `pnpm exec app-builder upgrade` moves the app onto a newer kit core through the safe-change checks.
 - `pnpm dev` with a disposable `APP_DATA_DIR`, and `APP_CONNECTORS=fixtures` for the fictional hub.
-- `pnpm exec app-builder serve --install` and `pnpm exec app-builder change` to run and change the person's service. Never run the app from this folder against the person's data, and never start a second server on its data directory.
+- `pnpm exec app-builder serve --install` and `pnpm exec app-builder change` to run and change the person's service. Never run the app from this folder against the person's data, and never start a second server on its data directory. The data directory's `host-key` lets the host that installed the app allow itself without a browser (core 0.2.3): never print, copy or commit it.
 
 ## Layout
 
@@ -23,7 +23,7 @@ Job Search is an App Builder app: core 0.2.2 as built from kit `main` at `e44b49
 
 ## Sources, jobs and connectors
 
-- **Sources** (what a connection can be limited to): `manual` (saved jobs, interviews and preparation), `materials`, and `account:<account>` for each account added in Sources. Every read filters by the caller's sources before assembling results, including counts, sort keys, the projected stage and suggestions.
+- **Sources** (what a connection can be limited to, labelled "collections and accounts", a plural noun the core reads after "All your"): `manual` (saved jobs, interviews and preparation), `materials`, and `account:<account>` for each account added in Sources. Every read filters by the caller's sources before assembling results, including counts, sort keys, the projected stage and suggestions.
 - **Jobs**: `sync_sources` every five minutes runs bounded sync and enrichment steps for accounts that update automatically. `follow_up_tasks` every five minutes asks Ri again for follow-up tasks waiting for approval.
 - **Connectors**: mail and calendar reads through Ri's hub. The app uses Gmail's and Calendar's own tools by name when Ri lends them (history sync, full messages, sync tokens) and the core's mail and calendar adapters otherwise. Ri's services: `ri__ai_text`, `ri__extract_text`, `ri__create_task`, `ri__get_task`. Account `default` is the one account Ri allows, called without an `account` argument. Sources offers the accounts Ri lent (`lentAccounts` in `src/server/sync.ts`, from `connectors(ctx).accounts()`). Branch on a connector error's `code` (`capabilityError` in `src/lib/invocation.ts`), and on `providerStatus` where a 404 and a 410 differ (calendar sync). Its "not found" text match only reads an older hub's `provider_error`, from before Ri #7.
 - **Context**: the screens report the section, its path and filters, and the selected records (one, or several when comparing) with the core's bounded context (`context()` in `src/view/kit/app.tsx`).
