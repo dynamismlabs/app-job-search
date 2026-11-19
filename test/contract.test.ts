@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { actionContract } from '@app-builder/core';
+import { actionContract, type Prompt } from '@app-builder/core';
 import { application } from '../src/app.js';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -93,7 +93,13 @@ describe('contract', () => {
   });
 
   it('keeps user-visible and model-facing copy free of long dashes and semicolons', async () => {
-    const prompts = await Promise.all(application.prompts!.map(async (prompt) => [prompt.title, prompt.description, JSON.stringify(await prompt.messages({} as never, {}))]));
+    // Each prompt's text with its arguments left out and filled in, and each argument's hint.
+    const filled = (prompt: Prompt) => Object.fromEntries(Object.keys(prompt.arguments?.shape ?? {}).map((key) => [key, 'Pinecrest']));
+    const prompts = await Promise.all(application.prompts!.map(async (prompt) => [
+      prompt.title, prompt.description,
+      ...Object.values(prompt.arguments?.shape ?? {}).map((field) => (field as { description?: string }).description ?? ''),
+      JSON.stringify(await prompt.messages({} as never, {})), JSON.stringify(await prompt.messages({} as never, filled(prompt))),
+    ]));
     for (const text of [...contract.actions.map((action) => action.description), application.config.instructions!, ...prompts.flat()]) {
       expect(text).not.toMatch(/[—–]/);
       expect(text).not.toContain(';');

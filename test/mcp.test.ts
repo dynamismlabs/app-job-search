@@ -59,6 +59,11 @@ describe('as an MCP server', () => {
     const listed = (await client.listPrompts()).prompts;
     expect(listed.map((prompt) => prompt.name)).toEqual(['review-applications', 'prepare-for-an-interview']);
     expect(listed.map((prompt) => prompt.title)).toEqual(['Review my applications', 'Prepare for an interview']);
+    // Each takes one optional text argument the person can fill in.
+    expect(listed.map((prompt) => prompt.arguments)).toEqual([
+      [{ name: 'focus', description: 'A company or role to focus on. Leave it out to review all of them.', required: false }],
+      [{ name: 'interview', description: 'Which interview: the company, the role or the day. Leave it out to choose from the upcoming ones.', required: false }],
+    ]);
     // The steps name the tools to read through.
     const prepared = await client.getPrompt({ name: 'prepare-for-an-interview' });
     expect(prepared.messages).toHaveLength(1);
@@ -69,6 +74,14 @@ describe('as an MCP server', () => {
     expect(text).toMatch(/save_preparation, passing the revision you read/);
     const review = await client.getPrompt({ name: 'review-applications' });
     expect((review.messages[0].content as { text: string }).text).toMatch(/^Review my job applications in Job Search\. If I name a company or role, focus on it\.\n[\s\S]*open_job_search at \/sources/);
+    // The arguments go in as the person's own words, quoted. A blank one counts as left out.
+    const textOf = async (name: string, args: Record<string, string>) => ((await client.getPrompt({ name, arguments: args })).messages[0].content as { text: string }).text;
+    expect(await textOf('review-applications', { focus: '  Pinecrest\n platform ' })).toMatch(/^Review my job applications in Job Search, focusing on "Pinecrest platform"\. If more than one role matches, or none does, ask me which I mean\.\n/);
+    expect(await textOf('review-applications', { focus: ' ' })).toMatch(/^Review my job applications in Job Search\. If I name a company or role, focus on it\.\n/);
+    const named = await textOf('prepare-for-an-interview', { interview: 'Pinecrest on Thursday' });
+    expect(named).toMatch(/^1\. Find the interview I mean by "Pinecrest on Thursday" with get_today or list_interviews \(upcoming only\)\. If more than one matches, or none does, ask me which\. Read its time in its own time zone/m);
+    expect(named).not.toMatch(/If more than one is coming up/);
+    await expect(client.getPrompt({ name: 'review-applications', arguments: { focus: 'x'.repeat(201) } })).rejects.toThrow();
     // Picking a prompt prepares a request and changes nothing.
     expect(Number(app().db.prepare("SELECT value FROM app_settings WHERE key = 'data.revision'").get()?.value ?? 0)).toBe(0);
     await client.close();
