@@ -15,7 +15,7 @@
     "test:host": "node --import tsx test/host/view.check.ts"
   },
   "dependencies": {
-    "@app-builder/core": "file:vendor/app-builder-core-0.2.2.tgz",
+    "@app-builder/core": "file:vendor/app-builder-core-0.2.3.tgz",
     "@trpc/server": "11.17.0",
     "drizzle-orm": "0.45.2",
     "react": "19.2.3",
@@ -49,7 +49,7 @@
   "appBuilder": {
     "starterVersion": "0.2.0",
     "example": "tracker",
-    "coreVersion": "0.2.2"
+    "coreVersion": "0.2.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
